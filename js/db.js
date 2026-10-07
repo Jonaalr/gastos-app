@@ -13,9 +13,11 @@
  *   bank          string|null       "Banamex"
  *   balanceCents  integer           saldo actual en centavos
  *   currency      "MXN"
- *   // solo type === "credit"
+ *   // solo type === "credit"  (balanceCents = disponible - límite, o sea ≤ 0 = lo que se debe)
  *   cutDay        integer|null      día de corte (1-31)
  *   dueDay        integer|null      día límite de pago (1-31)
+ *   cutRefDate    string|null       fecha ISO de corte de referencia elegida en el calendario
+ *   dueRefDate    string|null       fecha ISO de pago de referencia
  *   creditLimitCents integer|null
  *   // solo type === "savings"
  *   annualRatePct number|null       tasa anual, ej. 11.5

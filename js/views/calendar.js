@@ -14,12 +14,13 @@ async function renderCalendar(root) {
   for (const card of creditCards) {
     const nextDue = DateUtil.nextOccurrence(card.dueDay, new Date());
     const nextCut = card.cutDay ? DateUtil.nextOccurrence(card.cutDay, new Date()) : null;
+    const spent = Math.max(0, -card.balanceCents);
     events.push({
       date: nextDue,
       title: `Pago: ${card.name}`,
-      meta: `Límite de pago · corte día ${card.cutDay || "—"}`,
+      meta: `Límite de pago${spent ? " · gastado " + Money.format(spent) : ""}`,
       icon: "🪪",
-      amount: card.balanceCents < 0 ? Math.abs(card.balanceCents) : null,
+      amount: spent || null,
       kind: "credit",
     });
     if (nextCut) {

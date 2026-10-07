@@ -1,11 +1,45 @@
 /**
- * accounts.js — CRUD de cuentas + cálculo de rendimientos (cuentas de ahorro).
+ * accounts.js — CRUD de cuentas + cálculo de rendimientos (cuentas de ahorro)
+ * + tarjetas de crédito (límite, disponible, gastado, corte y pago).
+ *
+ * Modelo de tarjeta de crédito:
+ *   balanceCents = disponible - límite  (siempre ≤ 0: es lo que se debe)
+ *   gastado      = -balanceCents
+ *   disponible   = límite + balanceCents
+ * Así cada gasto registrado en la tarjeta baja el disponible y sube lo gastado.
  */
+
+function escapeAttr(value) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+/** Cifras de una tarjeta de crédito en centavos */
+function creditInfo(a) {
+  const limit = a.creditLimitCents || 0;
+  return {
+    limit,
+    spent: Math.max(0, -a.balanceCents),
+    available: limit + a.balanceCents,
+  };
+}
+
+/** Fecha corta "15 oct" de la próxima vez que cae un día del mes */
+function nextDayLabel(day) {
+  if (!day) return "—";
+  return DateUtil.parseISO(DateUtil.nextOccurrence(day)).toLocaleDateString("es-MX", { day: "numeric", month: "short" }).replace(/\./g, "");
+}
 
 async function renderAccounts(root) {
   const accounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
 
-  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Cuentas")]));
+  root.appendChild(
+    el("div", { class: "topbar" }, [
+      el("div", {}, [
+        el("h1", {}, "Cuentas"),
+        el("div", { class: "subtitle" }, `${accounts.length} ${accounts.length === 1 ? "cuenta" : "cuentas"}`),
+      ]),
+    ])
+  );
 
   const savingsAccounts = accounts.filter((a) => a.type === "savings" && a.annualRatePct);
   if (savingsAccounts.length > 0) {
@@ -32,23 +66,32 @@ async function renderAccounts(root) {
 }
 
 function renderAccountCard(a) {
+  const isCredit = a.type === "credit";
   const dailyInterest = a.type === "savings" && a.annualRatePct ? computeDailyInterestCents(a) : 0;
-  return el("div", { class: "card" }, [
+  const info = isCredit ? creditInfo(a) : null;
+
+  return el("div", { class: `card account-card type-${a.type}` }, [
     el("div", { class: "flex-between" }, [
-      el("div", { class: "flex-between", style: "gap:10px;" }, [
-        el("div", { class: "icon", style: "width:38px;height:38px;border-radius:10px;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:18px;" }, accountIcon(a.type)),
-        el("div", {}, [
-          el("div", { class: "title" }, a.name),
-          el("div", { class: "meta" }, accountSubtitle(a)),
-        ]),
+      el("div", { class: "account-head" }, [
+        el("div", { class: "icon-chip" }, accountIcon(a.type)),
+        el("div", {}, [el("div", { class: "title" }, a.name), el("div", { class: "meta" }, accountSubtitle(a))]),
       ]),
       el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", "data-edit-account": a.id }, "Editar"),
     ]),
-    el("div", { class: "balance-hero", style: "padding:14px 0 4px;" }, [
-      el("div", { class: "amount", style: "font-size:26px;" }, Money.format(a.balanceCents)),
+    el("div", { class: "account-amount-block" }, [
+      el("div", { class: "label" }, isCredit ? "Disponible" : "Saldo"),
+      el("div", { class: "amount" }, Money.format(isCredit ? info.available : a.balanceCents)),
     ]),
+    isCredit
+      ? el("div", { class: "credit-grid" }, [
+          el("div", {}, [el("span", { class: "k" }, "Límite"), el("span", { class: "v" }, Money.format(info.limit))]),
+          el("div", {}, [el("span", { class: "k" }, "Gastado"), el("span", { class: "v" }, Money.format(info.spent))]),
+          el("div", {}, [el("span", { class: "k" }, "Próximo corte"), el("span", { class: "v" }, nextDayLabel(a.cutDay))]),
+          el("div", {}, [el("span", { class: "k" }, "Pago vence"), el("span", { class: "v" }, nextDayLabel(a.dueDay))]),
+        ])
+      : null,
     a.type === "savings" && a.annualRatePct
-      ? el("div", { class: "text-dim", style: "font-size:12px;text-align:center;" }, `Generando ~${Money.format(dailyInterest)}/día`)
+      ? el("div", { class: "text-dim", style: "font-size:12px;margin-top:8px;" }, `Generando ~${Money.format(dailyInterest)}/día`)
       : null,
   ]);
 }
@@ -87,11 +130,19 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
     currency: "MXN",
     cutDay: null,
     dueDay: null,
+    cutRefDate: null,
+    dueRefDate: null,
     creditLimitCents: null,
     annualRatePct: null,
     archived: false,
     createdAt: new Date().toISOString(),
   };
+
+  // Estado de la tarjeta de crédito dentro del formulario
+  const initialInfo = existing && existing.type === "credit" ? creditInfo(existing) : null;
+  let cutRef = data.cutRefDate || (data.cutDay ? DateUtil.nextOccurrence(data.cutDay) : null);
+  let dueRef = data.dueRefDate || (data.dueDay ? DateUtil.nextOccurrence(data.dueDay) : null);
+  let availableTouched = false;
 
   const backdrop = el("div", { class: "sheet-backdrop" });
   const sheet = el("div", { class: "sheet" });
@@ -108,7 +159,7 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
 
     <div class="form-group">
       <label>Nombre</label>
-      <input type="text" id="f-name" value="${data.name}" placeholder="Ej. Banamex Débito">
+      <input type="text" id="f-name" value="${escapeAttr(data.name)}" placeholder="Ej. Banamex Débito">
     </div>
 
     <div class="form-group">
@@ -123,26 +174,32 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
 
     <div class="form-group">
       <label>Banco / Fintech (opcional)</label>
-      <input type="text" id="f-bank" value="${data.bank || ""}" placeholder="Ej. Banamex, Nu, Klar...">
+      <input type="text" id="f-bank" value="${escapeAttr(data.bank)}" placeholder="Ej. Banamex, Nu, Klar...">
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="balance-group" style="display:${data.type === "credit" ? "none" : "block"}">
       <label>${existing ? "Saldo actual" : "Saldo inicial"}</label>
-      <input type="number" inputmode="decimal" step="0.01" id="f-balance" value="${Money.toInputValue(data.balanceCents)}">
+      <input type="number" inputmode="decimal" step="0.01" id="f-balance" value="${Money.toInputValue(data.type === "credit" ? 0 : data.balanceCents)}">
     </div>
 
     <div id="credit-fields" style="display:${data.type === "credit" ? "block" : "none"}">
       <div class="form-group">
-        <label>Día de corte (1-31)</label>
-        <input type="number" min="1" max="31" id="f-cutday" value="${data.cutDay || ""}">
+        <label>Límite de crédito</label>
+        <input type="number" inputmode="decimal" step="0.01" id="f-limit" placeholder="Ej. 10000" value="${initialInfo && initialInfo.limit ? Money.toInputValue(initialInfo.limit) : ""}">
       </div>
       <div class="form-group">
-        <label>Día límite de pago (1-31)</label>
-        <input type="number" min="1" max="31" id="f-dueday" value="${data.dueDay || ""}">
+        <label>Saldo disponible actual</label>
+        <input type="number" inputmode="decimal" step="0.01" id="f-available" placeholder="Lo que aún puedes gastar" value="${initialInfo && initialInfo.limit ? Money.toInputValue(initialInfo.available) : ""}">
+        <div class="field-hint" id="credit-summary"></div>
       </div>
       <div class="form-group">
-        <label>Límite de crédito (opcional)</label>
-        <input type="number" inputmode="decimal" step="0.01" id="f-limit" value="${data.creditLimitCents ? Money.toInputValue(data.creditLimitCents) : ""}">
+        <label>Fecha de corte</label>
+        <button type="button" class="date-field" id="f-cut"></button>
+        <div class="field-hint">Elige un corte de referencia (de este mes o el próximo). Los demás meses se calculan solos.</div>
+      </div>
+      <div class="form-group">
+        <label>Fecha límite de pago</label>
+        <button type="button" class="date-field" id="f-due"></button>
       </div>
     </div>
 
@@ -159,14 +216,59 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
     </div>
   `;
 
-  sheet.querySelector("[data-close]").addEventListener("click", close);
-  sheet.querySelector("#f-type").addEventListener("change", (e) => {
-    sheet.querySelector("#credit-fields").style.display = e.target.value === "credit" ? "block" : "none";
-    sheet.querySelector("#savings-fields").style.display = e.target.value === "savings" ? "block" : "none";
+  const $ = (sel) => sheet.querySelector(sel);
+
+  function refreshDateButtons() {
+    const set = (btn, iso, placeholder) => {
+      btn.textContent = iso ? DateUtil.formatMedium(iso) : placeholder;
+      btn.classList.toggle("empty", !iso);
+    };
+    set($("#f-cut"), cutRef, "Seleccionar fecha");
+    set($("#f-due"), dueRef, "Seleccionar fecha");
+  }
+
+  function refreshCreditSummary() {
+    const limit = Money.toCents($("#f-limit").value || "0");
+    const availRaw = $("#f-available").value.trim();
+    const hint = $("#credit-summary");
+    if (!limit) { hint.textContent = "Gastado = límite − disponible"; return; }
+    const available = availRaw === "" ? limit : Money.toCents(availRaw);
+    const spent = limit - available;
+    hint.textContent = spent >= 0 ? `Gastado en la tarjeta: ${Money.format(spent)}` : `Saldo a favor: ${Money.format(-spent)}`;
+  }
+
+  refreshDateButtons();
+  refreshCreditSummary();
+
+  $("[data-close]").addEventListener("click", close);
+  $("#f-type").addEventListener("change", (e) => {
+    const t = e.target.value;
+    $("#credit-fields").style.display = t === "credit" ? "block" : "none";
+    $("#balance-group").style.display = t === "credit" ? "none" : "block";
+    $("#savings-fields").style.display = t === "savings" ? "block" : "none";
+  });
+
+  $("#f-cut").addEventListener("click", async () => {
+    const iso = await pickDate({ title: "Fecha de corte", value: cutRef });
+    if (iso) { cutRef = iso; refreshDateButtons(); }
+  });
+  $("#f-due").addEventListener("click", async () => {
+    const iso = await pickDate({ title: "Fecha límite de pago", value: dueRef });
+    if (iso) { dueRef = iso; refreshDateButtons(); }
+  });
+
+  $("#f-available").addEventListener("input", () => { availableTouched = true; refreshCreditSummary(); });
+  $("#f-limit").addEventListener("input", () => {
+    // Si el banco sube el límite, lo gastado no cambia: el disponible se ajusta solo
+    if (initialInfo && !availableTouched) {
+      const newLimit = Money.toCents($("#f-limit").value || "0");
+      $("#f-available").value = newLimit ? Money.toInputValue(newLimit - initialInfo.spent) : "";
+    }
+    refreshCreditSummary();
   });
 
   if (existing) {
-    sheet.querySelector("#f-archive").addEventListener("click", async () => {
+    $("#f-archive").addEventListener("click", async () => {
       if (!confirm("¿Archivar esta cuenta? No se borran sus transacciones, pero dejará de aparecer en el resumen.")) return;
       existing.archived = true;
       await DB.put("accounts", existing);
@@ -175,21 +277,34 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
     });
   }
 
-  sheet.querySelector("#f-save").addEventListener("click", async () => {
-    const name = sheet.querySelector("#f-name").value.trim();
+  $("#f-save").addEventListener("click", async () => {
+    const name = $("#f-name").value.trim();
     if (!name) { toast("Ponle un nombre a la cuenta", "error"); return; }
-    const type = sheet.querySelector("#f-type").value;
+    const type = $("#f-type").value;
+
+    let balanceCents = Money.toCents($("#f-balance").value);
+    let creditLimitCents = null;
+
+    if (type === "credit") {
+      creditLimitCents = Money.toCents($("#f-limit").value || "0");
+      if (creditLimitCents <= 0) { toast("Pon el límite de crédito de la tarjeta", "error"); return; }
+      const availRaw = $("#f-available").value.trim();
+      const availableCents = availRaw === "" ? creditLimitCents : Money.toCents(availRaw);
+      balanceCents = availableCents - creditLimitCents; // negativo = lo que se debe
+    }
 
     const record = {
       ...data,
       name,
       type,
-      bank: sheet.querySelector("#f-bank").value.trim(),
-      balanceCents: Money.toCents(sheet.querySelector("#f-balance").value),
-      cutDay: type === "credit" ? parseInt(sheet.querySelector("#f-cutday").value || "0", 10) || null : null,
-      dueDay: type === "credit" ? parseInt(sheet.querySelector("#f-dueday").value || "0", 10) || null : null,
-      creditLimitCents: type === "credit" ? Money.toCents(sheet.querySelector("#f-limit").value || "0") || null : null,
-      annualRatePct: type === "savings" ? parseFloat(sheet.querySelector("#f-rate").value || "0") || null : null,
+      bank: $("#f-bank").value.trim(),
+      balanceCents,
+      creditLimitCents,
+      cutDay: type === "credit" && cutRef ? DateUtil.parseISO(cutRef).getDate() : null,
+      dueDay: type === "credit" && dueRef ? DateUtil.parseISO(dueRef).getDate() : null,
+      cutRefDate: type === "credit" ? cutRef : null,
+      dueRefDate: type === "credit" ? dueRef : null,
+      annualRatePct: type === "savings" ? parseFloat($("#f-rate").value || "0") || null : null,
       rateUpdatedAt: type === "savings" ? DateUtil.todayISO() : null,
     };
     if (existing) record.id = existing.id;
@@ -205,3 +320,5 @@ window.renderAccounts = renderAccounts;
 window.openAccountSheet = openAccountSheet;
 window.computeDailyInterestCents = computeDailyInterestCents;
 window.computeMonthlyInterestCents = computeMonthlyInterestCents;
+window.creditInfo = creditInfo;
+window.nextDayLabel = nextDayLabel;

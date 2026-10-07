@@ -1,5 +1,5 @@
 /**
- * dashboard.js — Pantalla principal: saldo total, resumen del mes, últimos movimientos.
+ * dashboard.js — Pantalla principal: saldo total, gasto del mes, cuentas y últimos movimientos.
  */
 
 async function renderDashboard(root) {
@@ -10,6 +10,7 @@ async function renderDashboard(root) {
   ]);
 
   const activeAccounts = accounts.filter((a) => !a.archived);
+  // Saldo total = dinero que tienes menos lo gastado en tarjetas de crédito
   const totalBalance = activeAccounts.reduce((sum, a) => sum + a.balanceCents, 0);
 
   const thisMonth = DateUtil.monthKey();
@@ -31,26 +32,22 @@ async function renderDashboard(root) {
     ])
   );
 
+  // ---- Stats: saldo total + gasto del mes ----
   root.appendChild(
-    el("div", { class: "card balance-hero" }, [
-      el("div", { class: "label" }, "Saldo total"),
-      el("div", { class: "amount" }, Money.format(totalBalance)),
-    ])
-  );
-
-  root.appendChild(
-    el("div", { class: "stat-row mb-8" }, [
-      el("div", { class: "stat-box income" }, [
-        el("div", { class: "label" }, "Ingresos del mes"),
-        el("div", { class: "value" }, Money.format(incomeThisMonth)),
+    el("div", { class: "stats-grid" }, [
+      el("div", { class: "stat-card primary" }, [
+        el("div", { class: "stat-label" }, "Saldo total"),
+        el("div", { class: "stat-value" }, Money.format(totalBalance)),
       ]),
-      el("div", { class: "stat-box expense" }, [
-        el("div", { class: "label" }, "Gastos del mes"),
-        el("div", { class: "value" }, Money.format(expenseThisMonth)),
+      el("div", { class: "stat-card secondary" }, [
+        el("div", { class: "stat-label" }, "Gasto del mes"),
+        el("div", { class: "stat-value" }, Money.format(expenseThisMonth)),
+        el("div", { class: "stat-sub" }, `Ingresos ${Money.format(incomeThisMonth)}`),
       ]),
     ])
   );
 
+  // ---- Cuentas (carrusel horizontal) ----
   if (activeAccounts.length === 0) {
     root.appendChild(
       el("div", { class: "card" }, [
@@ -59,37 +56,50 @@ async function renderDashboard(root) {
       ])
     );
   } else {
-    const list = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Cuentas")]);
+    root.appendChild(
+      el("div", { class: "section-header" }, [
+        el("div", { class: "section-heading" }, "Mis cuentas"),
+        el("button", { class: "link-btn", onclick: () => Router.navigate("/accounts") }, "Ver todo"),
+      ])
+    );
+    const carousel = el("div", { class: "accounts-carousel" });
     for (const a of activeAccounts) {
-      list.appendChild(
-        el("div", { class: "list-item" }, [
-          el("div", { class: "icon" }, accountIcon(a.type)),
-          el("div", { class: "main" }, [
-            el("div", { class: "title" }, a.name),
-            el("div", { class: "meta" }, accountSubtitle(a)),
-          ]),
-          el("div", { class: "amount" }, Money.format(a.balanceCents)),
+      const isCredit = a.type === "credit" && a.creditLimitCents;
+      carousel.appendChild(
+        el("div", { class: "account-pill", onclick: () => Router.navigate("/accounts") }, [
+          el("div", { class: "icon-chip" }, accountIcon(a.type)),
+          el("div", { class: "pill-name" }, a.name),
+          el("div", { class: "pill-amount" }, Money.format(isCredit ? creditInfo(a).available : a.balanceCents)),
+          el("div", { class: "pill-sub" }, isCredit ? "disponible" : accountSubtitle(a)),
         ])
       );
     }
-    root.appendChild(list);
+    root.appendChild(carousel);
   }
 
-  const recentCard = el("div", { class: "card" }, [
-    el("div", { class: "flex-between" }, [
-      el("div", { class: "card-title" }, "Movimientos recientes"),
-      el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", onclick: () => Router.navigate("/transactions") }, "Ver todos"),
-    ]),
-  ]);
+  // ---- Movimientos recientes agrupados por día ----
+  root.appendChild(
+    el("div", { class: "section-header" }, [
+      el("div", { class: "section-heading" }, "Movimientos"),
+      el("button", { class: "link-btn", onclick: () => Router.navigate("/transactions") }, "Ver todos"),
+    ])
+  );
 
   if (recent.length === 0) {
-    recentCard.appendChild(el("div", { class: "empty-state" }, "Sin movimientos todavía. Toca el botón + para registrar uno."));
+    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, "Sin movimientos todavía. Toca el botón + para registrar uno.")));
   } else {
+    const byDay = new Map();
     for (const t of recent) {
-      recentCard.appendChild(renderTxRow(t, catMap, accMap));
+      if (!byDay.has(t.date)) byDay.set(t.date, []);
+      byDay.get(t.date).push(t);
+    }
+    for (const [day, list] of byDay) {
+      root.appendChild(el("div", { class: "day-label" }, DateUtil.relativeLabel(day)));
+      const card = el("div", { class: "card tx-card" });
+      for (const t of list) card.appendChild(renderTxRow(t, catMap, accMap));
+      root.appendChild(card);
     }
   }
-  root.appendChild(recentCard);
 
   root.querySelectorAll(".list-item[data-tx-id]").forEach((row) => {
     row.addEventListener("click", async () => {
@@ -103,7 +113,7 @@ function accountIcon(type) {
   return { cash: "💵", debit: "💳", credit: "🪪", savings: "🏦" }[type] || "💰";
 }
 function accountSubtitle(a) {
-  if (a.type === "credit") return `Crédito · corte día ${a.cutDay}`;
+  if (a.type === "credit") return a.cutDay ? `Crédito · corte día ${a.cutDay}` : "Crédito";
   if (a.type === "savings") return `Rendimiento · ${a.annualRatePct || 0}% anual`;
   return { cash: "Efectivo", debit: "Débito" }[a.type] || "";
 }
@@ -114,15 +124,15 @@ function renderTxRow(t, catMap, accMap) {
   const isIncome = t.type === "income";
   const isTransfer = t.type === "transfer";
   const sign = isIncome ? "+" : isTransfer ? "" : "-";
-  const amountClass = isIncome ? "income" : isTransfer ? "" : "expense";
+  const kind = isIncome ? "income" : isTransfer ? "transfer" : "expense";
 
   const row = el("div", { class: "list-item", "data-tx-id": t.id }, [
-    el("div", { class: "icon" }, isTransfer ? "🔁" : cat ? cat.icon : "📦"),
+    el("div", { class: `icon tx-${kind}` }, isTransfer ? "🔁" : cat ? cat.icon : "📦"),
     el("div", { class: "main" }, [
       el("div", { class: "title" }, isTransfer ? "Transferencia" : t.merchant || (cat ? cat.name : "Sin descripción")),
-      el("div", { class: "meta" }, `${DateUtil.formatShort(t.date)} · ${acc ? acc.name : "—"}${t.isRecurring ? " · 🔄 domiciliado" : ""}`),
+      el("div", { class: "meta" }, `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}`),
     ]),
-    el("div", { class: `amount ${amountClass}` }, `${sign}${Money.format(t.amountCents)}`),
+    el("div", { class: `amount ${kind === "transfer" ? "" : kind}` }, `${sign}${Money.format(t.amountCents)}`),
   ]);
   row.style.cursor = "pointer";
   return row;

@@ -24,12 +24,33 @@ const Money = {
 };
 
 const DateUtil = {
+  /** Date -> "YYYY-MM-DD" usando la fecha LOCAL (toISOString usa UTC y adelanta el día por las tardes) */
+  toISO(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  },
+  /** "YYYY-MM-DD" -> Date a medianoche local (new Date("YYYY-MM-DD") lo interpreta en UTC) */
+  parseISO(iso) {
+    return new Date(iso.length <= 10 ? iso + "T00:00:00" : iso);
+  },
   todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    return DateUtil.toISO(new Date());
   },
   monthKey(date = new Date()) {
-    const d = typeof date === "string" ? new Date(date) : date;
+    const d = typeof date === "string" ? DateUtil.parseISO(date) : date;
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  },
+  /** "Hoy", "Ayer" o "3 de octubre" */
+  relativeLabel(isoDate) {
+    const today = DateUtil.todayISO();
+    const diff = DateUtil.daysBetween(isoDate, today);
+    if (diff === 0) return "Hoy";
+    if (diff === 1) return "Ayer";
+    return DateUtil.parseISO(isoDate).toLocaleDateString("es-MX", { day: "numeric", month: "long" });
+  },
+  /** "15 oct 2026" */
+  formatMedium(isoDate) {
+    return DateUtil.parseISO(isoDate).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }).replace(/\./g, "");
   },
   formatLong(isoDate) {
     const d = new Date(isoDate + (isoDate.length <= 10 ? "T00:00:00" : ""));
@@ -42,6 +63,7 @@ const DateUtil = {
   /** Dado un día de corte/pago (1-31) y una fecha base, regresa la próxima ocurrencia ISO */
   nextOccurrence(day, fromDate = new Date()) {
     const d = new Date(fromDate);
+    d.setHours(0, 0, 0, 0); // si el pago es hoy, debe seguir contando como "Hoy"
     const year = d.getFullYear();
     const month = d.getMonth();
     const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
@@ -51,7 +73,7 @@ const DateUtil = {
       const lastDayNextMonth = new Date(year, month + 2, 0).getDate();
       candidate = new Date(year, month + 1, Math.min(day, lastDayNextMonth));
     }
-    return candidate.toISOString().slice(0, 10);
+    return DateUtil.toISO(candidate);
   },
   daysBetween(isoA, isoB) {
     const a = new Date(isoA + "T00:00:00");

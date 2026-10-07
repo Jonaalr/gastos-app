@@ -11,6 +11,9 @@
   --warn: #f59e0b;
   --income: #22c55e;
   --expense: #f87171;
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --blue: #3b82f6;
   --radius: 14px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -29,6 +32,7 @@ html, body {
 }
 
 body {
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%) fixed;
   padding-top: var(--safe-top);
   padding-bottom: calc(64px + var(--safe-bottom));
   min-height: 100vh;
@@ -58,7 +62,7 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 16px 12px;
+  padding: 4px 2px 14px;
   max-width: 560px;
   margin: 0 auto;
 }
@@ -67,8 +71,8 @@ input, select, textarea {
 
 /* ---------- Cards ---------- */
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 14px;
@@ -130,6 +134,9 @@ input, select, textarea {
   font-size: 18px;
   flex-shrink: 0;
 }
+.list-item .icon.tx-expense { background: rgba(239, 68, 68, 0.14); }
+.list-item .icon.tx-income { background: rgba(34, 197, 94, 0.14); }
+.list-item .icon.tx-transfer { background: rgba(59, 130, 246, 0.16); }
 .list-item .main { flex: 1; min-width: 0; }
 .list-item .title { font-size: 15px; font-weight: 600; }
 .list-item .meta { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
@@ -203,8 +210,9 @@ input, select, textarea {
   background: transparent;
   font-size: 10px;
 }
-.nav-item .nav-icon { font-size: 19px; }
+.nav-item .nav-icon { font-size: 19px; filter: grayscale(1) opacity(0.55); transition: filter 0.15s; }
 .nav-item.active { color: var(--accent); }
+.nav-item.active .nav-icon { filter: none; }
 
 /* ---------- Forms ---------- */
 .form-group { margin-bottom: 14px; }
@@ -352,3 +360,186 @@ input, select, textarea {
 .mb-8 { margin-bottom: 8px; }
 
 a { color: var(--accent); }
+
+
+/* ======================================================
+   Rediseño: dashboard, cuentas y calendario emergente
+   ====================================================== */
+
+/* ---------- Stats (saldo total + gasto del mes) ---------- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  border-radius: 16px;
+  padding: 16px;
+  color: white;
+  min-width: 0;
+}
+.stat-card.primary { background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); }
+.stat-card.secondary { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); }
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+.stat-value { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.stat-sub { font-size: 11px; opacity: 0.8; margin-top: 4px; }
+
+/* ---------- Encabezados de sección ---------- */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 10px;
+}
+.section-heading { font-size: 15px; font-weight: 700; }
+.link-btn {
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 0;
+}
+.day-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 14px 2px 8px;
+}
+.tx-card { padding: 4px 14px; margin-bottom: 4px; }
+
+/* ---------- Chip de icono (emoji) ---------- */
+.icon-chip {
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* ---------- Carrusel de cuentas ---------- */
+.accounts-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin: 0 -16px 18px;
+  padding: 0 16px 4px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.accounts-carousel::-webkit-scrollbar { display: none; }
+.account-pill {
+  flex: 0 0 160px;
+  scroll-snap-align: start;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+}
+.account-pill:active { transform: scale(0.98); }
+.account-pill .icon-chip { margin-bottom: 12px; }
+.pill-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill-amount { font-size: 17px; font-weight: 800; color: var(--accent); margin-top: 4px; letter-spacing: -0.01em; }
+.pill-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Página de cuentas ---------- */
+.account-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.account-head .title { font-size: 15px; font-weight: 700; }
+.account-head .meta { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+.account-amount-block { padding: 16px 0 4px; }
+.account-amount-block .label { font-size: 12px; color: var(--text-dim); }
+.account-amount-block .amount { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin-top: 2px; }
+.credit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-border);
+}
+.credit-grid > div { display: flex; flex-direction: column; gap: 2px; }
+.credit-grid .k { font-size: 11px; color: var(--text-dim); }
+.credit-grid .v { font-size: 14px; font-weight: 700; }
+
+/* ---------- Campos de fecha / ayudas de formulario ---------- */
+.date-field {
+  width: 100%;
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 13px;
+  color: var(--text);
+  font-size: 16px;
+}
+.date-field.empty { color: var(--text-dim); }
+.field-hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+/* ---------- Calendario emergente ---------- */
+.picker-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: pickerFade 0.18s ease-out;
+}
+.picker-popup {
+  background: #1e293b;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+  width: 100%;
+  max-width: 340px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  animation: pickerPop 0.22s ease-out;
+}
+@keyframes pickerFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pickerPop { from { transform: translateY(14px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+.picker-title { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; text-align: center; margin-bottom: 10px; }
+.picker-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.picker-month { font-size: 16px; font-weight: 700; }
+.picker-nav {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.picker-nav:active { background: rgba(255, 255, 255, 0.08); }
+.picker-weekdays, .picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.picker-weekdays { margin-bottom: 6px; }
+.picker-weekdays div { text-align: center; font-size: 11px; font-weight: 700; color: #64748b; padding: 6px 0; }
+.picker-day {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: #0f172a;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+.picker-day.outside { color: #475569; background: transparent; }
+.picker-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+.picker-day.selected { background: var(--accent); color: white; font-weight: 700; }
+.picker-day:active { background: #334155; }
+.picker-day.selected:active { background: var(--accent); }
+.picker-footer { display: flex; justify-content: center; margin-top: 12px; }
+.picker-link { background: transparent; color: var(--text-dim); font-size: 14px; padding: 6px 12px; }
