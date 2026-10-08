@@ -81,8 +81,9 @@ async function openCategorySheet({ existing = null, kind = "expense", parentId =
       <button class="sheet-close" data-close>✕</button>
     </div>
     <div class="form-group">
-      <label>Ícono (emoji)</label>
-      <input type="text" id="f-icon" value="${data.icon}" maxlength="4" style="width:70px; text-align:center; font-size:20px;">
+      <label>Ícono</label>
+      <div class="icon-grid" id="f-icon-grid"></div>
+      <input type="hidden" id="f-icon" value="${data.icon}">
     </div>
     <div class="form-group">
       <label>Nombre</label>
@@ -95,6 +96,19 @@ async function openCategorySheet({ existing = null, kind = "expense", parentId =
   `;
 
   sheet.querySelector("[data-close]").addEventListener("click", close);
+
+  // Selector de ícono: cuadrícula de emojis; el elegido queda marcado
+  const iconInput = sheet.querySelector("#f-icon");
+  const iconGrid = sheet.querySelector("#f-icon-grid");
+  const iconChoices = [...new Set([data.icon, ...CATEGORY_ICON_CHOICES].filter(Boolean))];
+  const markIcon = () => iconGrid.querySelectorAll(".icon-pick").forEach((b) =>
+    b.classList.toggle("on", b.dataset.icon === iconInput.value));
+  for (const emoji of iconChoices) {
+    const b = el("button", { type: "button", class: "icon-pick", "data-icon": emoji }, emoji);
+    b.addEventListener("click", () => { iconInput.value = emoji; markIcon(); });
+    iconGrid.appendChild(b);
+  }
+  markIcon();
 
   if (existing && !existing.isDefault) {
     sheet.querySelector("#f-delete").addEventListener("click", async () => {

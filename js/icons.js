@@ -55,6 +55,19 @@ function categoryIconName(cat) {
   if (/nómina|nomina|ingreso|salario/.test(n)) return "banknote";
   return "tag";
 }
+/** Icono de categoría: el emoji que elegiste; si no tiene, el icono de línea por nombre */
 function categoryIconNode(cat, cls = "ico") {
+  if (cat && cat.icon) return el("span", { class: "cat-emoji" }, cat.icon);
   return iconNode(categoryIconName(cat), cls, 20);
 }
+
+/** Texto para menús: "🛒 Súper" */
+function categoryLabel(cat) {
+  return cat.icon ? `${cat.icon} ${cat.name}` : cat.name;
+}
+
+const CATEGORY_ICON_CHOICES = [
+  "🛒", "🍽️", "🚗", "💡", "🏠", "💊", "🎬", "👕", "📚", "💳", "📦", "💼",
+  "📈", "➕", "🐶", "✈️", "🎁", "💇", "🏋️", "☕", "🍺", "🎮", "📱", "🛠️",
+  "🧾", "🎓", "🚌", "⛽", "🌱", "🧸", "🎵", "💰",
+];

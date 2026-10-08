@@ -60,7 +60,7 @@ async function renderTransactions(root, params) {
     el("option", { value: "" }, "Todas las categorías"),
     el("option", { value: "none" }, "Sin categoría"),
     ...categories.filter((c) => c.kind === "expense" || c.kind === "income").sort((a, b) => a.name.localeCompare(b.name, "es")).map((c) =>
-      el("option", { value: String(c.id), ...(String(c.id) === catF ? { selected: "selected" } : {}) }, c.name)
+      el("option", { value: String(c.id), ...(String(c.id) === catF ? { selected: "selected" } : {}) }, categoryLabel(c))
     ),
   ]);
   catSel.value = catF;

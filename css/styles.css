@@ -1061,3 +1061,9 @@ input[type="date"], input[type="time"] {
   box-sizing: border-box;
 }
 .date-field, .form-group .date-field { max-width: 100%; min-width: 0; box-sizing: border-box; }
+
+/* Iconos de categoría (emoji) */
+.cat-emoji { font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+.icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.icon-pick { height: 38px; font-size: 20px; line-height: 1; padding: 0; border-radius: 10px; border: 1px solid var(--border); background: var(--fill); color: inherit; }
+.icon-pick.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }

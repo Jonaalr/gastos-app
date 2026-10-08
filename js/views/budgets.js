@@ -105,7 +105,7 @@ async function openBudgetSheet({ monthKey, existing = null, availableCats = [], 
     ${existing ? "" : `
     <div class="form-group">
       <label>Categoría</label>
-      <select id="f-category">${availableCats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("")}</select>
+      <select id="f-category">${availableCats.map((c) => `<option value="${c.id}">${categoryLabel(c)}</option>`).join("")}</select>
     </div>`}
     <div class="form-group">
       <label>Límite mensual (MXN)</label>
