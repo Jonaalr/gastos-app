@@ -1,4 +1,9 @@
 :root {
+  color-scheme: dark;
+  --card-bg: rgba(30, 42, 74, 0.62);
+  --nav-bg: rgba(15, 23, 42, 0.92);
+  --page-bg: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+  --fill: rgba(255, 255, 255, 0.07);
   --bg: #0f172a;
   --bg-elevated: #1a2540;
   --bg-card: #1e2a4a;
@@ -31,8 +36,30 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Tema claro: el atributo lo pone js/utils.js según Ajustes → Apariencia */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  --page-bg: #f2f2f7;
+  --fill: rgba(0, 0, 0, 0.05);
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --bg-card: #ffffff;
+  --border: #e5e5ea;
+  --text: #1c1c1e;
+  --text-dim: #8e8e93;
+  --accent: #16a34a;
+  --accent-dim: #dcfce7;
+  --glass: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --income: #16a34a;
+  --expense: #dc2626;
+}
+
 body {
-  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%) fixed;
+  background: var(--page-bg);
+  background-attachment: fixed;
   padding-top: var(--safe-top);
   padding-bottom: calc(64px + var(--safe-bottom));
   min-height: 100vh;
@@ -71,7 +98,7 @@ input, select, textarea {
 
 /* ---------- Cards ---------- */
 .card {
-  background: rgba(30, 42, 74, 0.62);
+  background: var(--card-bg);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid var(--glass-border);
@@ -195,7 +222,7 @@ input, select, textarea {
 .bottom-nav {
   position: fixed;
   left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.92);
+  background: var(--nav-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
   display: flex;
@@ -429,7 +456,7 @@ a { color: var(--accent); }
 .icon-chip {
   width: 38px; height: 38px;
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--fill);
   display: flex; align-items: center; justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
@@ -530,7 +557,7 @@ a { color: var(--accent); }
   line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
-.picker-nav:active { background: rgba(255, 255, 255, 0.08); }
+.picker-nav:active { background: var(--fill); }
 .picker-weekdays, .picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .picker-weekdays { margin-bottom: 6px; }
 .picker-weekdays div { text-align: center; font-size: 11px; font-weight: 700; color: #64748b; padding: 6px 0; }
@@ -585,7 +612,7 @@ body[data-route="/import"] .fab { display: none; }
 .imp-amount.expense { color: var(--expense); }
 .imp-amount.income { color: var(--income); }
 .imp-sub { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--text-dim); margin-top: 3px; }
-.imp-tag { background: rgba(255, 255, 255, 0.08); border-radius: 99px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.imp-tag { background: var(--fill); border-radius: 99px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
 .imp-tag.warn { background: #3a2a0f; color: var(--warn); }
 .imp-tag.ok { background: var(--accent-dim); color: #4ade80; }
 .imp-cat {
@@ -682,7 +709,7 @@ body[data-route="/import"] .fab { display: none; }
   border-radius: 8px;
   flex-shrink: 0;
 }
-.icon-btn:active { background: rgba(255, 255, 255, 0.08); }
+.icon-btn:active { background: var(--fill); }
 
 /* ---------- Filtros de cuentas y saldo total (Inicio) ---------- */
 .filter-row { display: flex; flex-wrap: wrap; margin: 0 0 12px; }

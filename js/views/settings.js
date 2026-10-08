@@ -20,6 +20,24 @@ async function renderSettings(root) {
     toast("Guardado", "success");
   });
 
+  const current = getThemePref();
+  root.appendChild(
+    el("div", { class: "card" }, [
+      el("div", { class: "card-title" }, "Apariencia"),
+      el(
+        "div",
+        { class: "segmented" },
+        [["system", "Automático"], ["light", "Claro"], ["dark", "Oscuro"]].map(([value, label]) =>
+          el("button", {
+            type: "button",
+            class: current === value ? "active" : "",
+            onclick: () => { setThemePref(value); Router.render(); },
+          }, label)
+        )
+      ),
+    ])
+  );
+
   root.appendChild(
     el("div", { class: "card" }, [
       el("div", { class: "list-item", onclick: () => Router.navigate("/accounts") }, [

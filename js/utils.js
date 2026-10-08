@@ -187,3 +187,19 @@ window.splitEvenly = splitEvenly;
 window.escapeHtml = escapeHtml;
 window.el = el;
 window.toast = toast;
+
+/* ---------- Tema (Ajustes → Apariencia). Se guarda en este dispositivo. ---------- */
+const THEME_KEY = "tema";
+function getThemePref() {
+  try { return localStorage.getItem(THEME_KEY) || "dark"; } catch (e) { return "dark"; }
+}
+function applyTheme(pref = getThemePref()) {
+  const systemDark = !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark = pref === "dark" || (pref === "system" && systemDark);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+function setThemePref(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch (e) { /* modo privado: solo aplica en esta sesión */ }
+  applyTheme(pref);
+}
+applyTheme();
