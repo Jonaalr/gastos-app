@@ -65,6 +65,8 @@ function openAddMenu() {
     }
   });
   menu.addEventListener("touchcancel", () => setHover(null), { passive: true });
+  // Mientras el menú está abierto, deslizar no debe mover la página de atrás
+  backdrop.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
   menu.append(writeBtn, captureBtn);
   backdrop.appendChild(menu);
