@@ -936,3 +936,21 @@ body[data-route="/import"] .fab { display: none; }
 .fsel-item:last-child { border-bottom: 0; }
 .fsel-item.on { background: var(--accent-dim); }
 .fsel-check { color: var(--accent); font-weight: 700; }
+
+/* ---------- Sin desplazamiento horizontal (campos de fecha y hojas) ---------- */
+html, body { overflow-x: hidden; max-width: 100vw; }
+.sheet { overflow-x: hidden; }
+.sheet-body, .sheet > div { max-width: 100%; min-width: 0; }
+.form-group input[type="date"],
+.form-group input[type="time"],
+.form-group input[type="datetime-local"],
+input[type="date"], input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+.date-field, .form-group .date-field { max-width: 100%; min-width: 0; box-sizing: border-box; }
