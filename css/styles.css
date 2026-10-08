@@ -66,12 +66,14 @@ input, select, textarea {
   max-width: 560px;
   margin: 0 auto;
 }
-.topbar h1 { font-size: 20px; }
+.topbar h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
 .topbar .subtitle { color: var(--text-dim); font-size: 13px; }
 
 /* ---------- Cards ---------- */
 .card {
-  background: var(--glass);
+  background: rgba(30, 42, 74, 0.62);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 16px;
@@ -163,7 +165,8 @@ input, select, textarea {
   display: block;
   text-align: center;
 }
-.btn:active { opacity: 0.8; }
+.btn { transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s; }
+.btn:active { opacity: 0.85; transform: scale(0.98); }
 .btn-secondary {
   background: var(--bg-elevated);
   color: var(--text);
@@ -300,12 +303,17 @@ input, select, textarea {
   max-height: 88vh;
   overflow-y: auto;
   padding: 20px 18px calc(24px + var(--safe-bottom));
-  animation: slideUp 0.22s ease-out;
+  background: rgba(30, 42, 74, 0.94);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  animation: slideUp 0.42s cubic-bezier(0.32, 0.72, 0, 1);
 }
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+@keyframes backdropFade { from { opacity: 0; } to { opacity: 1; } }
+.sheet-backdrop { animation: backdropFade 0.3s ease-out; }
 .sheet-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 16px;
@@ -692,4 +700,25 @@ body[data-route="/import"] .fab { display: none; }
   margin-top: 10px; padding: 0 2px; font-size: 13px; opacity: 0.95;
 }
 .after-debt strong { font-size: 17px; font-weight: 800; }
+
+/* ---------- Diseño fluido (inspirado en Apple) ---------- */
+/* Cifras con ancho fijo para que no "bailen" al cambiar de valor */
+.amount, .stat-value, .pill-amount, .debt-row strong, .after-debt strong, .credit-grid .v, .stat-box .value {
+  font-variant-numeric: tabular-nums;
+}
+/* Respuesta al tocar en filas, tarjetas de cuenta y chips */
+.list-item, .account-pill, .chip, .icon-btn, .link-btn {
+  transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.2s;
+}
+.list-item:active, .account-pill:active, .icon-btn:active { transform: scale(0.985); }
+.chip:active { transform: scale(0.96); }
+/* Accesibilidad: quien tenga "Reducir movimiento" activado no ve animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
