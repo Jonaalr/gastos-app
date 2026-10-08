@@ -3,8 +3,11 @@
  */
 
 const Money = {
+  /** true = las cifras se muestran como •••• (preferencia guardada en este dispositivo) */
+  hidden: false,
   /** 16000 (centavos) -> "$160.00" */
   format(cents) {
+    if (Money.hidden) return "••••";
     const value = (cents || 0) / 100;
     return value.toLocaleString("es-MX", {
       style: "currency",
@@ -99,6 +102,43 @@ function splitEvenly(totalCents, n) {
   return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
+/** Lee la preferencia de ocultar cifras (conveniencia por dispositivo; si el navegador la bloquea, se ignora) */
+function loadPrivacyPref() {
+  try {
+    Money.hidden = localStorage.getItem("ocultarCifras") === "1";
+  } catch (e) {
+    Money.hidden = false;
+  }
+}
+loadPrivacyPref();
+
+function setPrivacyPref(hidden) {
+  Money.hidden = hidden;
+  try {
+    localStorage.setItem("ocultarCifras", hidden ? "1" : "0");
+  } catch (e) {
+    /* sin almacenamiento: solo dura esta sesión */
+  }
+}
+
+/** Botón de ojito para mostrar u ocultar todas las cifras */
+function privacyToggleButton() {
+  return el(
+    "button",
+    {
+      class: "privacy-btn",
+      type: "button",
+      title: Money.hidden ? "Mostrar cifras" : "Ocultar cifras",
+      "aria-label": Money.hidden ? "Mostrar cifras" : "Ocultar cifras",
+      onclick: () => {
+        setPrivacyPref(!Money.hidden);
+        Router.render();
+      },
+    },
+    Money.hidden ? "🙈" : "👁️"
+  );
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -139,6 +179,7 @@ function toast(message, type = "info") {
 }
 
 window.Money = Money;
+window.privacyToggleButton = privacyToggleButton;
 window.DateUtil = DateUtil;
 window.uid = uid;
 window.myShareCents = myShareCents;

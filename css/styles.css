@@ -722,3 +722,32 @@ body[data-route="/import"] .fab { display: none; }
   }
 }
 
+
+/* ---------- Ocultar cifras (ojito) ---------- */
+.privacy-btn {
+  width: 38px; height: 38px;
+  border-radius: 99px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 17px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-left: 12px;
+  transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.privacy-btn:active { transform: scale(0.9); }
+
+/* ---------- Hojas que se cierran arrastrando ---------- */
+.sheet { position: relative; }
+.sheet::before {
+  content: "";
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 38px; height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  pointer-events: none;
+}
+.sheet-header { touch-action: none; }

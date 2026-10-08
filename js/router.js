@@ -35,6 +35,12 @@ const Router = {
       console.error(err);
       root.appendChild(el("div", { class: "card" }, `Error al cargar la vista: ${err.message}`));
     }
+
+    // Ojito para ocultar cifras en la barra superior (excepto barras en columna, p. ej. detalle de persona)
+    const topbar = root.querySelector(".topbar");
+    if (topbar && topbar.style.flexDirection !== "column" && typeof privacyToggleButton === "function") {
+      topbar.appendChild(privacyToggleButton());
+    }
   },
 
   updateNav(path) {
