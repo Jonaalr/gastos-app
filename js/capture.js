@@ -25,7 +25,7 @@ function openAddMenu() {
       el("div", { class: "add-menu-sub" }, "Como hasta ahora"),
     ]),
   ]);
-  const captureBtn = el("button", { class: "add-menu-item primary", type: "button" }, [
+  const captureBtn = el("button", { class: "add-menu-item", type: "button" }, [
     el("div", { class: "add-menu-icon" }, "▣"),
     el("div", { class: "add-menu-text" }, [
       el("div", { class: "add-menu-title" }, "Desde captura"),
@@ -33,14 +33,38 @@ function openAddMenu() {
     ]),
   ]);
 
-  writeBtn.addEventListener("click", () => {
-    close();
-    openTransactionSheet({ onSaved: () => Router.render() });
+  const actions = new Map([
+    [writeBtn, () => openTransactionSheet({ onSaved: () => Router.render() })],
+    [captureBtn, () => pickCaptureImage()],
+  ]);
+  writeBtn.addEventListener("click", () => { close(); actions.get(writeBtn)(); });
+  captureBtn.addEventListener("click", () => { close(); actions.get(captureBtn)(); });
+
+  // Se pinta la opción bajo el dedo (igual que el menú desplegable); al soltar, se elige
+  let hovered = null;
+  const setHover = (item) => {
+    if (item === hovered) return;
+    if (hovered) hovered.classList.remove("hover");
+    hovered = item;
+    if (hovered) hovered.classList.add("hover");
+  };
+  const itemAt = (touch) => {
+    const node = document.elementFromPoint(touch.clientX, touch.clientY);
+    const item = node && node.closest ? node.closest(".add-menu-item") : null;
+    return item && menu.contains(item) ? item : null;
+  };
+  menu.addEventListener("touchstart", (e) => setHover(itemAt(e.touches[0])), { passive: true });
+  menu.addEventListener("touchmove", (e) => setHover(itemAt(e.touches[0])), { passive: true });
+  menu.addEventListener("touchend", (e) => {
+    const target = hovered;
+    setHover(null);
+    if (target && actions.has(target)) {
+      e.preventDefault();
+      close();
+      actions.get(target)();
+    }
   });
-  captureBtn.addEventListener("click", () => {
-    close();
-    pickCaptureImage();
-  });
+  menu.addEventListener("touchcancel", () => setHover(null), { passive: true });
 
   menu.append(writeBtn, captureBtn);
   backdrop.appendChild(menu);

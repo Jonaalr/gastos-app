@@ -830,7 +830,7 @@ body[data-route="/import"] .fab { display: none; }
   border-radius: 0;
 }
 .add-menu-item + .add-menu-item { border-top: 0.5px solid var(--border); }
-.add-menu-item.primary { background: var(--accent-dim); }
+.add-menu-item.hover { background: var(--accent); color: #ffffff; }
 .add-menu-icon {
   width: 34px; height: 34px; border-radius: 17px;
   display: flex; align-items: center; justify-content: center;
@@ -839,10 +839,10 @@ body[data-route="/import"] .fab { display: none; }
   font-size: 16px; font-weight: 700;
   flex-shrink: 0;
 }
-.add-menu-item.primary .add-menu-icon { background: var(--accent); color: #fff; }
+.add-menu-item.hover .add-menu-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
 .add-menu-title { font-size: 16px; font-weight: 600; }
 .add-menu-sub { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
-.add-menu-item.primary .add-menu-sub { color: var(--accent); }
+.add-menu-item.hover .add-menu-sub { color: rgba(255, 255, 255, 0.9); }
 
 .capture-notice {
   margin: 0 0 14px;
