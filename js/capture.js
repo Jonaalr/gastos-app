@@ -279,22 +279,26 @@ function voiceRecognizer() {
   return Ctor ? new Ctor() : null;
 }
 
-/** Abre la hoja de dictado: un toque en el micrófono empieza a escuchar. */
+/** Abre la hoja de dictado: un toque en el micrófono empieza a escuchar. Si no funciona, se puede escribir o dictar con el teclado. */
 function openVoiceSheet() {
   const rec = voiceRecognizer();
   const backdrop = el("div", { class: "sheet-backdrop" });
   const sheet = el("div", { class: "sheet" });
   backdrop.appendChild(sheet);
   document.body.appendChild(backdrop);
+  let listening = false;
   const close = () => { try { rec && rec.abort(); } catch (_) {} backdrop.remove(); };
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
 
-  const status = el("p", { class: "muted", style: "text-align:center;margin:8px 0;" }, "");
+  const status = el("p", { class: "muted", style: "text-align:center;margin:8px 0;min-height:18px;" }, "");
   const heard = el("div", { class: "voice-heard" }, "");
   const micBtn = el("button", { class: "voice-mic", type: "button", "aria-label": "Dictar" }, "◉");
-  const hint = el("p", { class: "muted", style: "font-size:12px;text-align:center;" },
-    "Di, por ejemplo: «gasté 150 pesos en Oxxo» o «ayer compré 320 en Costco con Banamex»."
-  );
+  const textBox = el("textarea", {
+    rows: 2,
+    placeholder: "O escribe o dicta con el micrófono del teclado: «gasté 150 en Oxxo»",
+    style: "width:100%;box-sizing:border-box;margin-top:10px;border-radius:12px;padding:10px;font-size:16px;",
+  });
+  const useText = el("button", { class: "btn btn-secondary", type: "button", style: "width:100%;margin-top:8px;" }, "Usar este texto");
 
   sheet.append(
     el("div", { class: "sheet-header" }, [
@@ -304,36 +308,25 @@ function openVoiceSheet() {
     el("div", { style: "display:flex;justify-content:center;margin:12px 0;" }, [micBtn]),
     status,
     heard,
-    hint,
+    textBox,
+    useText,
     el("p", { class: "muted", style: "font-size:11px;text-align:center;margin-top:10px;" },
       "El audio lo procesa el reconocimiento de voz de tu navegador (en iPhone, Apple). Los gastos se guardan solo en tu teléfono."
     )
   );
 
-  if (!rec) {
-    status.textContent = "Tu navegador no permite dictar. Usa el micrófono del teclado al escribir el gasto.";
-    micBtn.disabled = true;
-    return;
-  }
-
-  rec.lang = VOICE_LANG;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  let listening = false;
-
-  rec.onresult = async (e) => {
-    const text = e.results[0][0].transcript;
-    listening = false;
-    micBtn.classList.remove("on");
-    heard.textContent = `«${text}»`;
-    status.textContent = "";
+  // Del texto (dictado o escrito) al formulario lleno
+  async function fillFromText(text) {
+    const clean = String(text || "").trim();
+    if (!clean) { toast("Escribe o dicta el gasto primero", "error"); return; }
+    heard.textContent = `«${clean}»`;
     const accounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
-    const parsed = parseVoice(text, accounts);
-    close();
+    const parsed = parseVoice(clean, accounts);
     if (!parsed.amountCents) {
-      toast("No escuché un monto. Intenta de nuevo o escribe el gasto.", "error");
+      status.textContent = "No encontré un monto en eso. Incluye la cantidad, por ejemplo «150».";
       return;
     }
+    close();
     openTransactionSheet({
       prefill: {
         type: "expense",
@@ -346,26 +339,52 @@ function openVoiceSheet() {
       },
       onSaved: () => Router.render(),
     });
+  }
+  useText.addEventListener("click", () => fillFromText(textBox.value));
+
+  if (!rec) {
+    status.textContent = "Este navegador no tiene dictado. Usa el micrófono del teclado en el cuadro de abajo.";
+    micBtn.disabled = true;
+    return;
+  }
+
+  rec.lang = VOICE_LANG;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  rec.continuous = false;
+
+  rec.onstart = () => { status.textContent = "Escuchando… di el gasto y toca el micrófono al terminar."; };
+  rec.onresult = (e) => {
+    listening = false;
+    micBtn.classList.remove("on");
+    const text = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : "";
+    if (!text) { status.textContent = "No llegó texto. Prueba de nuevo o usa el teclado."; return; }
+    textBox.value = text;
+    fillFromText(text);
   };
   rec.onerror = (e) => {
     listening = false;
     micBtn.classList.remove("on");
-    const msg = e.error === "not-allowed" ? "Activa el permiso de micrófono para Safari en Ajustes."
-      : e.error === "no-speech" ? "No escuché nada. Toca el micrófono y vuelve a intentar."
-      : "No pude escuchar. Intenta de nuevo.";
-    status.textContent = msg;
+    const why = {
+      "not-allowed": "Safari no tiene permiso para usar el dictado. Revisa en Ajustes > Safari o Ajustes > Privacidad.",
+      "service-not-allowed": "El dictado no está disponible aquí. Usa el micrófono del teclado.",
+      "no-speech": "No escuché nada. Toca el micrófono y habla después de que empiece a escuchar.",
+      "audio-capture": "No encuentro el micrófono.",
+      "network": "Sin conexión para el dictado. Usa el micrófono del teclado.",
+    }[e.error] || `El dictado se detuvo (${e.error || "sin detalle"}). Usa el micrófono del teclado.`;
+    status.textContent = why;
   };
   rec.onend = () => {
-    if (listening) { listening = false; micBtn.classList.remove("on"); status.textContent = "Toca el micrófono para volver a dictar."; }
+    if (listening) { listening = false; micBtn.classList.remove("on"); status.textContent = "Terminó sin resultado. Toca el micrófono para intentar de nuevo."; }
   };
 
   micBtn.addEventListener("click", () => {
     if (listening) { try { rec.stop(); } catch (_) {} return; }
     listening = true;
     micBtn.classList.add("on");
-    status.textContent = "Escuchando… toca de nuevo para terminar.";
     heard.textContent = "";
-    try { rec.start(); } catch (_) { listening = false; micBtn.classList.remove("on"); status.textContent = "No pude iniciar el micrófono."; }
+    status.textContent = "Iniciando el micrófono…";
+    try { rec.start(); } catch (err) { listening = false; micBtn.classList.remove("on"); status.textContent = `No pude iniciar el micrófono (${err && err.message ? err.message : "error"}).`; }
   });
 }
 
