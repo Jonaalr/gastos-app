@@ -118,7 +118,7 @@ function accountMovementRow(e) {
     : "";
   const metaParts = [];
   if (e.cat && e.group !== "transfer") metaParts.push(e.cat.name);
-  metaParts.push(isInterest ? "Interés diario" : time);
+  metaParts.push(isInterest ? `Interés diario${t.taxWithheldCents ? ` · ISR ${Money.format(t.taxWithheldCents)}` : ""}` : time);
   if (t.split) metaParts.push(`tu parte ${Money.format(t.split.myShareCents)}`);
 
   const amountClass = e.dir === "in" ? "income" : e.group === "transfer" ? "" : "expense";

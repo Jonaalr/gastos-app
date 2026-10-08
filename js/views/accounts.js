@@ -152,18 +152,19 @@ async function runCapitalizeSavings() {
     const days = DateUtil.daysBetween(since, today);
     if (!(days > 0)) continue;
 
-    const dailyRate = a.annualRatePct / 100 / 365;
     const start = DateUtil.parseISO(since);
     let balance = a.balanceCents;
     for (let i = 0; i < days; i++) {
-      const gain = Math.round(balance * dailyRate);
-      balance += gain;
+      const { gross, tax, net } = dailyInterestBreakdown(balance, a.annualRatePct);
+      balance += net;
       // Cada día queda registrado como "Interés pagado" (no vuelve a cambiar el saldo)
       const day = new Date(start);
       day.setDate(day.getDate() + i + 1);
       await DB.add("transactions", {
         type: "income",
-        amountCents: gain,
+        amountCents: net,
+        grossCents: gross,
+        taxWithheldCents: tax,
         accountId: a.id,
         toAccountId: null,
         categoryId: interestCat ? interestCat.id : null,
@@ -184,14 +185,28 @@ async function runCapitalizeSavings() {
   }
 }
 
+/**
+ * Rendimiento diario como lo calcula Revolut México (verificado con sus movimientos):
+ * - Interés bruto = saldo × tasa anual ÷ 360 (base de 360 días)
+ * - ISR retenido = saldo × 0.90% anual ÷ 365
+ * - Neto abonado = bruto − ISR (se suma al saldo cada día)
+ */
+const INTEREST_DAY_BASIS = 360;
+const ISR_ANNUAL_RATE = 0.009;
+const ISR_DAY_BASIS = 365;
+
+function dailyInterestBreakdown(balanceCents, annualRatePct) {
+  const gross = Math.round(balanceCents * (annualRatePct / 100) / INTEREST_DAY_BASIS);
+  const tax = Math.round(balanceCents * ISR_ANNUAL_RATE / ISR_DAY_BASIS);
+  return { gross, tax, net: gross - tax };
+}
+
 function computeDailyInterestCents(account) {
-  const dailyRate = account.annualRatePct / 100 / 365;
-  return Math.round(account.balanceCents * dailyRate);
+  return dailyInterestBreakdown(account.balanceCents, account.annualRatePct).net;
 }
 function computeMonthlyInterestCents(account) {
-  const dailyRate = account.annualRatePct / 100 / 365;
   const days = DateUtil.daysInMonth(new Date().getFullYear(), new Date().getMonth());
-  return Math.round(account.balanceCents * dailyRate * days);
+  return computeDailyInterestCents(account) * days;
 }
 
 async function renderSavingsSummary(savingsAccounts) {

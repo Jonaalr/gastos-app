@@ -67,7 +67,7 @@ async function renderSavingsControl(allTx, accounts) {
 
   const monthlyInterest = savingsAccounts.reduce((s, a) => {
     if (!a.annualRatePct) return s;
-    return s + Math.round((a.balanceCents * (a.annualRatePct / 100 / 365)) * DateUtil.daysInMonth(new Date().getFullYear(), new Date().getMonth()));
+    return s + computeMonthlyInterestCents(a);
   }, 0);
 
   return el("div", { class: "card" }, [
