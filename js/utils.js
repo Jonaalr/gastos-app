@@ -191,7 +191,7 @@ window.toast = toast;
 /* ---------- Tema (Ajustes → Apariencia). Se guarda en este dispositivo. ---------- */
 const THEME_KEY = "tema";
 function getThemePref() {
-  try { return localStorage.getItem(THEME_KEY) || "dark"; } catch (e) { return "dark"; }
+  try { return localStorage.getItem(THEME_KEY) || "light"; } catch (e) { return "light"; }
 }
 function applyTheme(pref = getThemePref()) {
   const systemDark = !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
