@@ -77,13 +77,22 @@
     document.body.appendChild(backdrop);
     openBackdrop = backdrop;
 
-    // Pegado al botón; si no cabe abajo, se abre hacia arriba
+    // Pegado al botón. Se abre hacia el lado con más espacio y la altura se ajusta a ese espacio,
+    // así siempre se ve completo y se puede deslizar.
     const r = sel._fsel.btn.getBoundingClientRect();
+    const margin = 12;
+    const spaceBelow = window.innerHeight - r.bottom - 6 - margin;
+    const spaceAbove = r.top - 6 - margin;
     menu.style.width = r.width + "px";
     menu.style.left = r.left + "px";
-    const h = menu.offsetHeight;
-    const below = r.bottom + 6;
-    menu.style.top = (below + h > window.innerHeight - 12 ? Math.max(12, r.top - h - 6) : below) + "px";
+    if (spaceBelow >= spaceAbove) {
+      menu.style.top = r.bottom + 6 + "px";
+      menu.style.maxHeight = Math.max(120, spaceBelow) + "px";
+    } else {
+      menu.style.bottom = window.innerHeight - r.top + 6 + "px";
+      menu.style.top = "auto";
+      menu.style.maxHeight = Math.max(120, spaceAbove) + "px";
+    }
     const current = menu.querySelector(".on");
     if (current) current.scrollIntoView({ block: "nearest" });
     backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeMenu(); });
