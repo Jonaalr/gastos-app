@@ -799,3 +799,53 @@ body[data-route="/import"] .fab { display: none; }
 .nav-item .nav-icon { filter: none; opacity: 1; }
 .nav-item.active { color: var(--accent); background: var(--accent-dim); }
 .nav-item.active .nav-icon { filter: none; }
+
+/* ---------- Iconos SVG ---------- */
+.ico { display: inline-flex; align-items: center; justify-content: center; color: var(--text); line-height: 0; }
+.ico svg { display: block; }
+.list-item .icon .ico { color: var(--text); }
+.list-item .icon.tx-income .ico { color: var(--income); }
+.list-item .icon.tx-expense .ico { color: var(--expense); }
+.list-item .icon.tx-transfer .ico { color: var(--blue); }
+
+/* ---------- Inicio: saldo, anillo y barras ---------- */
+.hero-card {
+  background: var(--bg-card);
+  border-radius: 22px;
+  padding: 20px;
+  margin: 8px 0 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.hero-label { font-size: 14px; color: var(--text-dim); }
+.hero-value { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-top: 2px; }
+.hero-rows { margin-top: 14px; padding-top: 12px; border-top: 0.5px solid var(--border); }
+.hero-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 15px; color: var(--text-dim); }
+.hero-row strong { font-size: 16px; color: var(--text); font-weight: 600; }
+.hero-row strong.neg { color: var(--expense); }
+
+.chart-card {
+  background: var(--bg-card);
+  border-radius: 22px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.chart-title { font-size: 17px; font-weight: 700; }
+.chart-sub { font-size: 13px; color: var(--text-dim); }
+
+.donut-wrap { display: flex; align-items: center; gap: 18px; }
+.ring { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+.ring svg { display: block; }
+.ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.ring-label { font-size: 12px; color: var(--text-dim); }
+.ring-value { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.legend { flex: 1; min-width: 0; }
+.legend-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
+.legend-row .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.legend-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-val { font-weight: 600; white-space: nowrap; }

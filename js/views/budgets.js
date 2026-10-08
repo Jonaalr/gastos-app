@@ -40,7 +40,7 @@ async function renderBudgets(root, params) {
       const card = el("div", { class: "card" });
       card.appendChild(
         el("div", { class: "flex-between" }, [
-          el("div", { style: "font-weight:700;" }, `${cat ? cat.icon : "📦"} ${cat ? cat.name : "—"}`),
+          el("div", { style: "font-weight:700;" }, `${cat ? cat.name : "—"}`),
           el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", "data-edit-budget": b.id }, "Editar"),
         ])
       );
@@ -104,7 +104,7 @@ async function openBudgetSheet({ monthKey, existing = null, availableCats = [], 
     ${existing ? "" : `
     <div class="form-group">
       <label>Categoría</label>
-      <select id="f-category">${availableCats.map((c) => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join("")}</select>
+      <select id="f-category">${availableCats.map((c) => `<option value="${c.id}">${c.name}</option>`).join("")}</select>
     </div>`}
     <div class="form-group">
       <label>Límite mensual (MXN)</label>

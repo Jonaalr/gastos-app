@@ -135,7 +135,7 @@ function privacyToggleButton() {
         Router.render();
       },
     },
-    Money.hidden ? "🙈" : "👁️"
+    svgIconNode(Money.hidden ? "eyeOff" : "eye")
   );
 }
 
@@ -203,3 +203,10 @@ function setThemePref(pref) {
   applyTheme(pref);
 }
 applyTheme();
+
+function svgIconNode(name) {
+  const span = document.createElement("span");
+  span.className = "ico";
+  span.innerHTML = svgIcon(name, 20);
+  return span;
+}

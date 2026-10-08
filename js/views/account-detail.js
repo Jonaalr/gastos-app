@@ -65,14 +65,14 @@ async function renderAccountDetail(root, params) {
     const cat = t.categoryId ? catMap[t.categoryId] : null;
     if (t.accountId === id) {
       if (t.type === "transfer") {
-        entries.push({ t, group: "transfer", dir: "out", title: `Transferencia a ${accMap[t.toAccountId]?.name || "—"}`, icon: "🔁" });
+        entries.push({ t, group: "transfer", dir: "out", title: `Transferencia a ${accMap[t.toAccountId]?.name || "—"}`, icon: "transfer" });
       } else if (t.type === "income") {
-        entries.push({ t, group: "income", dir: "in", title: t.merchant || (cat ? cat.name : "Ingreso"), icon: cat ? cat.icon : "💰", cat });
+        entries.push({ t, group: "income", dir: "in", title: t.merchant || (cat ? cat.name : "Ingreso"), icon: cat ? categoryIconName(cat) : "banknote", cat });
       } else {
-        entries.push({ t, group: "expense", dir: "out", title: t.merchant || (cat ? cat.name : "Gasto"), icon: cat ? cat.icon : "📦", cat });
+        entries.push({ t, group: "expense", dir: "out", title: t.merchant || (cat ? cat.name : "Gasto"), icon: cat ? categoryIconName(cat) : "tag", cat });
       }
     } else if (t.type === "transfer" && t.toAccountId === id) {
-      entries.push({ t, group: "transfer", dir: "in", title: `Transferencia de ${accMap[t.accountId]?.name || "—"}`, icon: "🔁" });
+      entries.push({ t, group: "transfer", dir: "in", title: `Transferencia de ${accMap[t.accountId]?.name || "—"}`, icon: "transfer" });
     }
   }
 
@@ -128,7 +128,7 @@ function accountMovementRow(e) {
 
   const amountClass = e.dir === "in" ? "income" : e.group === "transfer" ? "" : "expense";
   const row = el("div", { class: "list-item" }, [
-    el("div", { class: `icon tx-${e.dir === "in" ? "income" : "expense"}` }, e.icon),
+    el("div", { class: `icon tx-${e.dir === "in" ? "income" : "expense"}` }, iconNode(e.icon)),
     el("div", { class: "main" }, [
       el("div", { class: "title" }, e.title),
       el("div", { class: "meta" }, metaParts.filter(Boolean).join(" · ")),

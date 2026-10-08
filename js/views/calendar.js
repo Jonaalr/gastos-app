@@ -29,13 +29,13 @@ async function renderCalendar(root) {
         el("div", { class: "text-dim", style: "font-size:12px;margin-top:-6px;margin-bottom:6px;" }, spent ? `Gastado ${Money.format(spent)}` : "Sin saldo gastado"),
         nextCut
           ? el("div", { class: "list-item" }, [
-              el("div", { class: "icon" }, "📅"),
+              el("div", { class: "icon" }, iconNode("calendar")),
               el("div", { class: "main" }, [el("div", { class: "title" }, "Fecha de corte"), el("div", { class: "meta" }, DateUtil.formatLong(nextCut))]),
               badgeFor(nextCut),
             ])
           : null,
         el("div", { class: "list-item" }, [
-          el("div", { class: "icon" }, "🪪"),
+          el("div", { class: "icon" }, iconNode("card")),
           el("div", { class: "main" }, [el("div", { class: "title" }, "Fecha límite de pago"), el("div", { class: "meta" }, DateUtil.formatLong(nextDue))]),
           badgeFor(nextDue),
         ]),
@@ -54,7 +54,7 @@ async function renderCalendar(root) {
       date: DateUtil.nextOccurrence(t.recurringDay, new Date()),
       title: t.merchant || "Pago domiciliado",
       meta: `Recurrente · ~${Money.format(t.amountCents)}`,
-      icon: "🔁",
+      icon: "repeat",
     });
   }
   events.sort((a, b) => a.date.localeCompare(b.date));
@@ -73,7 +73,7 @@ async function renderCalendar(root) {
     for (const ev of events) {
       card.appendChild(
         el("div", { class: "list-item" }, [
-          el("div", { class: "icon" }, ev.icon),
+          el("div", { class: "icon" }, iconNode(ev.icon)),
           el("div", { class: "main" }, [
             el("div", { class: "title" }, ev.title),
             el("div", { class: "meta" }, `${DateUtil.formatLong(ev.date)} · ${ev.meta}`),

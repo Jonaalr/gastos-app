@@ -143,7 +143,7 @@ async function renderPersonDetail(root, personId) {
       const merchant = t.merchant || "Gasto";
       card.appendChild(
         el("div", { class: "list-item" }, [
-          el("div", { class: "icon" }, "🧾"),
+          el("div", { class: "icon" }, iconNode("receipt")),
           el("div", { class: "main" }, [
             el("div", { class: "title" }, merchant),
             el("div", { class: "meta" }, `${DateUtil.formatShort(m.date)} · total ${Money.format(t.amountCents)}`),
@@ -156,7 +156,7 @@ async function renderPersonDetail(root, personId) {
       const methodLabel = c.method === "cash" ? "Efectivo" : "Transferencia";
       card.appendChild(
         el("div", { class: "list-item" }, [
-          el("div", { class: "icon" }, c.method === "cash" ? "💵" : "🏦"),
+          el("div", { class: "icon" }, iconNode(c.method === "cash" ? "banknote" : "bank")),
           el("div", { class: "main" }, [
             el("div", { class: "title" }, `Cobro · ${methodLabel}`),
             el("div", { class: "meta" }, `${DateUtil.formatShort(m.date)}${c.note ? " · " + c.note : ""}`),

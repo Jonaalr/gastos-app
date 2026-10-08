@@ -53,7 +53,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     }
     let html = `<option value="">Sin categoría</option>`;
     for (const c of cats) {
-      html += `<option value="${c.id}">${c.icon} ${c.name}</option>`;
+      html += `<option value="${c.id}">${c.name}</option>`;
       for (const sub of subByParent[c.id] || []) {
         html += `<option value="${sub.id}">&nbsp;&nbsp;↳ ${sub.name}</option>`;
       }

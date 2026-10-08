@@ -41,29 +41,88 @@ async function renderDashboard(root) {
   const backupReminder = await backupReminderCard();
   if (backupReminder) root.appendChild(backupReminder);
 
-  // ---- Stats: saldo total + gasto del mes ----
+  // ---- Saldo total (tarjeta blanca) ----
   root.appendChild(
-    el("div", { class: "stat-card primary hero-total" }, [
-      el("div", { class: "stat-label" }, "Dinero total"),
-      el("div", { class: "stat-value big" }, Money.format(moneyTotal)),
-      el("div", { class: "debt-row" }, [
-        el("span", {}, "Por pagar en tarjetas"),
-        el("strong", {}, `−${Money.format(creditDebt)}`),
-      ]),
-      el("div", { class: "after-debt" }, [
-        el("span", {}, "Total ya pagando tarjetas"),
-        el("strong", {}, Money.format(afterDebt)),
+    el("div", { class: "hero-card" }, [
+      el("div", { class: "hero-label" }, "Dinero total"),
+      el("div", { class: "hero-value" }, Money.format(moneyTotal)),
+      el("div", { class: "hero-rows" }, [
+        el("div", { class: "hero-row" }, [el("span", {}, "Tarjetas"), el("strong", { class: "neg" }, `−${Money.format(creditDebt)}`)]),
+        el("div", { class: "hero-row" }, [el("span", {}, "Libre tras tarjetas"), el("strong", {}, Money.format(afterDebt))]),
       ]),
     ])
   );
 
+  // ---- Gasto del mes: anillo por categoría ----
+  const catTotals = new Map();
+  for (const t of txThisMonth) {
+    if (t.type !== "expense") continue;
+    const key = t.categoryId || 0;
+    catTotals.set(key, (catTotals.get(key) || 0) + myShareCents(t));
+  }
+  const slices = [...catTotals.entries()].sort((a, b) => b[1] - a[1]);
+  const top = slices.slice(0, 4);
+  const restTotal = slices.slice(4).reduce((sum, [, v]) => sum + v, 0);
+  if (restTotal) top.push([-1, restTotal]);
+  const palette = ["#16A34A", "#3B82F6", "#F59E0B", "#8B5CF6", "#94A3B8"];
+  const ringTotal = expenseThisMonth || 1;
+  const circ = 2 * Math.PI * 46;
+  let offset = 0;
+  const arcs = top
+    .map(([, val], i) => {
+      const len = (circ * val) / ringTotal;
+      const arc = `<circle cx="60" cy="60" r="46" fill="none" stroke="${palette[i]}" stroke-width="14" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)"/>`;
+      offset += len;
+      return arc;
+    })
+    .join("");
+  const ring = el("div", {
+    class: "ring",
+    html: `<svg viewBox="0 0 120 120" width="150" height="150"><circle cx="60" cy="60" r="46" fill="none" stroke="rgba(120,120,128,0.16)" stroke-width="14"/>${arcs}</svg>`,
+  });
+  ring.appendChild(el("div", { class: "ring-center" }, [el("div", { class: "ring-label" }, "Gastado"), el("div", { class: "ring-value" }, Money.format(expenseThisMonth))]));
+  const legend = top.map(([key, val], i) => {
+    const name = key === -1 ? "Otros" : catMap[key] ? catMap[key].name : "Sin categoría";
+    return el("div", { class: "legend-row" }, [
+      el("span", { class: "dot", style: `background:${palette[i]}` }),
+      el("span", { class: "legend-name" }, name),
+      el("span", { class: "legend-val" }, Money.format(val)),
+    ]);
+  });
   root.appendChild(
-    el("div", { class: "stats-grid", style: "grid-template-columns:1fr;" }, [
-      el("div", { class: "stat-card secondary" }, [
-        el("div", { class: "stat-label" }, "Gasto del mes"),
-        el("div", { class: "stat-value" }, Money.format(expenseThisMonth)),
-        el("div", { class: "stat-sub" }, `Ingresos ${Money.format(incomeThisMonth)}`),
+    el("div", { class: "chart-card" }, [
+      el("div", { class: "chart-head" }, [
+        el("div", { class: "chart-title" }, "Gasto del mes"),
+        el("div", { class: "chart-sub" }, `Ingresos ${Money.format(incomeThisMonth)}`),
       ]),
+      el("div", { class: "donut-wrap" }, [ring, el("div", { class: "legend" }, legend.length ? legend : [el("div", { class: "text-dim" }, "Sin gastos este mes")])]),
+    ])
+  );
+
+  // ---- Últimos 7 días: barras ----
+  const week = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const iso = DateUtil.toISO(d);
+    const sum = transactions.filter((t) => t.type === "expense" && t.date === iso).reduce((acc, t) => acc + myShareCents(t), 0);
+    week.push({ sum, label: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()] });
+  }
+  const weekMax = Math.max(1, ...week.map((d) => d.sum));
+  const weekTotal = week.reduce((acc, d) => acc + d.sum, 0);
+  const bars = week
+    .map((d, i) => {
+      const h = Math.max(4, Math.round((d.sum / weekMax) * 84));
+      return `<rect x="${i * 44 + 9}" y="${100 - h}" width="26" height="${h}" rx="9" fill="#16A34A" opacity="${i === 6 ? 1 : 0.4}"/><text x="${i * 44 + 22}" y="116" text-anchor="middle" font-size="11" fill="#8E8E93">${d.label}</text>`;
+    })
+    .join("");
+  root.appendChild(
+    el("div", { class: "chart-card" }, [
+      el("div", { class: "chart-head" }, [
+        el("div", { class: "chart-title" }, "Últimos 7 días"),
+        el("div", { class: "chart-sub" }, `${Money.format(weekTotal)} gastados`),
+      ]),
+      el("div", { html: `<svg viewBox="0 0 308 120" width="100%" height="120" role="img" aria-label="Gasto de los últimos 7 días">${bars}</svg>` }),
     ])
   );
 
@@ -145,7 +204,8 @@ async function renderDashboard(root) {
 }
 
 function accountIcon(type) {
-  return { cash: "💵", debit: "💳", credit: "🪪", savings: "🏦" }[type] || "💰";
+  const name = { cash: "banknote", debit: "card", credit: "card", savings: "bank" }[type] || "banknote";
+  return iconNode(name, "ico", 20);
 }
 function accountSubtitle(a) {
   if (a.type === "credit") return a.cutDay ? `Crédito · corte día ${a.cutDay}` : "Crédito";
@@ -162,7 +222,7 @@ function renderTxRow(t, catMap, accMap) {
   const kind = isIncome ? "income" : isTransfer ? "transfer" : "expense";
 
   const row = el("div", { class: "list-item", "data-tx-id": t.id }, [
-    el("div", { class: `icon tx-${kind}` }, isTransfer ? "🔁" : cat ? cat.icon : "📦"),
+    el("div", { class: `icon tx-${kind}` }, isTransfer ? iconNode("transfer") : cat ? categoryIconNode(cat) : iconNode("tag")),
     el("div", { class: "main" }, [
       el("div", { class: "title" }, isTransfer ? "Transferencia" : t.merchant || (cat ? cat.name : "Sin descripción")),
       el("div", { class: "meta" }, `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}${t.split ? ` · entre varios, tu parte ${Money.format(t.split.myShareCents)}` : ""}`),

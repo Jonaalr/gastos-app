@@ -41,22 +41,22 @@ async function renderSettings(root) {
   root.appendChild(
     el("div", { class: "card" }, [
       el("div", { class: "list-item", onclick: () => Router.navigate("/accounts") }, [
-        el("div", { class: "icon" }, "💳"),
+        el("div", { class: "icon" }, iconNode("card")),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Cuentas"), el("div", { class: "meta" }, "Agregar, editar, archivar")]),
         el("div", {}, "›"),
       ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/import") }, [
-        el("div", { class: "icon" }, "📄"),
+        el("div", { class: "icon" }, iconNode("receipt")),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Importar estado de cuenta"), el("div", { class: "meta" }, "Lee un PDF de tu banco")]),
         el("div", {}, "›"),
       ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/receivables") }, [
-        el("div", { class: "icon" }, "🤝"),
+        el("div", { class: "icon" }, iconNode("handshake")),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Por cobrar"), el("div", { class: "meta" }, "Personas que te deben por gastos compartidos")]),
         el("div", {}, "›"),
       ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/categories") }, [
-        el("div", { class: "icon" }, "🏷️"),
+        el("div", { class: "icon" }, iconNode("tag")),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Categorías"), el("div", { class: "meta" }, "Predeterminadas y personalizadas")]),
         el("div", {}, "›"),
       ]),

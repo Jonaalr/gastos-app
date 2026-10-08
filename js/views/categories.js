@@ -52,7 +52,7 @@ function renderCategoryList(cats, subOf) {
     const subs = subOf(c.id);
     card.appendChild(
       el("div", { class: "list-item" }, [
-        el("div", { class: "icon" }, c.icon),
+        el("div", { class: "icon" }, categoryIconNode(c)),
         el("div", { class: "main" }, [
           el("div", { class: "title" }, c.name),
           subs.length ? el("div", { class: "meta" }, subs.map((s) => s.name).join(", ")) : null,

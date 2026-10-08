@@ -40,7 +40,7 @@ async function renderReports(root, params) {
     for (const r of rows) {
       const bar = el("div", { style: "margin-bottom:12px;" }, [
         el("div", { class: "flex-between", style: "margin-bottom:4px;" }, [
-          el("div", {}, `${r.cat.icon} ${r.cat.name}`),
+          el("div", {}, `${r.cat.name}`),
           el("div", { style: "font-weight:700;" }, Money.format(r.amount)),
         ]),
       ]);
