@@ -675,3 +675,21 @@ body[data-route="/import"] .fab { display: none; }
   flex-shrink: 0;
 }
 .icon-btn:active { background: rgba(255, 255, 255, 0.08); }
+
+/* ---------- Filtros de cuentas y saldo total (Inicio) ---------- */
+.filter-row { display: flex; flex-wrap: wrap; margin: 0 0 12px; }
+.credit-grid .v.debt { color: var(--danger); }
+.hero-total { padding: 18px; margin-bottom: 12px; }
+.stat-value.big { font-size: 34px; }
+.debt-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-top: 14px; padding: 10px 12px; border-radius: 12px;
+  background: #ffffff; color: #dc2626; font-size: 13px; font-weight: 600;
+}
+.debt-row strong { font-size: 16px; font-weight: 800; white-space: nowrap; }
+.after-debt {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-top: 10px; padding: 0 2px; font-size: 13px; opacity: 0.95;
+}
+.after-debt strong { font-size: 17px; font-weight: 800; }
+

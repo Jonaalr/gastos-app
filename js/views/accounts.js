@@ -29,8 +29,19 @@ function nextDayLabel(day) {
   return DateUtil.parseISO(DateUtil.nextOccurrence(day)).toLocaleDateString("es-MX", { day: "numeric", month: "short" }).replace(/\./g, "");
 }
 
+/** Filtro seleccionado en la pantalla de cuentas (se conserva mientras la app esté abierta) */
+let accountsFilter = "all";
+
+const ACCOUNT_FILTERS = [
+  { id: "all", label: "Todas" },
+  { id: "debit", label: "Débito" },
+  { id: "credit", label: "Crédito" },
+  { id: "savings", label: "Rendimientos" },
+];
+
 async function renderAccounts(root) {
-  const accounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
+  const allAccounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
+  const accounts = allAccounts.filter((a) => accountsFilter === "all" || a.type === accountsFilter);
 
   root.appendChild(
     el("div", { class: "topbar" }, [
@@ -41,13 +52,25 @@ async function renderAccounts(root) {
     ])
   );
 
+  root.appendChild(
+    el(
+      "div",
+      { class: "filter-row" },
+      ACCOUNT_FILTERS.map((f) =>
+        el("button", { class: `chip ${accountsFilter === f.id ? "on" : ""}`, "data-filter": f.id, onclick: () => { accountsFilter = f.id; Router.render(); } }, f.label)
+      )
+    )
+  );
+
   const savingsAccounts = accounts.filter((a) => a.type === "savings" && a.annualRatePct);
-  if (savingsAccounts.length > 0) {
+  if (savingsAccounts.length > 0 && (accountsFilter === "all" || accountsFilter === "savings")) {
     root.appendChild(await renderSavingsSummary(savingsAccounts));
   }
 
-  if (accounts.length === 0) {
+  if (allAccounts.length === 0) {
     root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, "No tienes cuentas todavía.")));
+  } else if (accounts.length === 0) {
+    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, "No tienes cuentas de este tipo.")));
   } else {
     for (const a of accounts) {
       root.appendChild(renderAccountCard(a));
@@ -85,7 +108,7 @@ function renderAccountCard(a) {
     isCredit
       ? el("div", { class: "credit-grid" }, [
           el("div", {}, [el("span", { class: "k" }, "Límite"), el("span", { class: "v" }, Money.format(info.limit))]),
-          el("div", {}, [el("span", { class: "k" }, "Gastado"), el("span", { class: "v" }, Money.format(info.spent))]),
+          el("div", {}, [el("span", { class: "k" }, "Gastado"), el("span", { class: "v debt" }, Money.format(info.spent))]),
           el("div", {}, [el("span", { class: "k" }, "Próximo corte"), el("span", { class: "v" }, nextDayLabel(a.cutDay))]),
           el("div", {}, [el("span", { class: "k" }, "Pago vence"), el("span", { class: "v" }, nextDayLabel(a.dueDay))]),
         ])
@@ -117,7 +140,7 @@ async function renderSavingsSummary(savingsAccounts) {
   return el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Resumen de rendimientos"),
     el("div", { class: "stat-row" }, [
-      el("div", { class: "stat-box" }, [el("div", { class: "label" }, "Saldo en ahorro"), el("div", { class: "value" }, Money.format(totalBalance))]),
+      el("div", { class: "stat-box" }, [el("div", { class: "label" }, "Saldo generando rendimientos"), el("div", { class: "value" }, Money.format(totalBalance))]),
       el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al mes"), el("div", { class: "value" }, Money.format(totalMonthly))]),
     ]),
     el("div", { class: "text-dim", style: "font-size:12px; margin-top:8px;" }, `≈ ${Money.format(totalDaily)} por día entre ${savingsAccounts.length} cuenta(s)`),

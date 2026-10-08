@@ -10,8 +10,12 @@ async function renderDashboard(root) {
   ]);
 
   const activeAccounts = accounts.filter((a) => !a.archived);
-  // Saldo total = dinero que tienes menos lo gastado en tarjetas de crédito
-  const totalBalance = activeAccounts.reduce((sum, a) => sum + a.balanceCents, 0);
+  // Dinero total = efectivo + débito + ahorro (sin tarjetas)
+  const moneyTotal = activeAccounts.filter((a) => a.type !== "credit").reduce((sum, a) => sum + a.balanceCents, 0);
+  // Por pagar = lo gastado en tarjetas de crédito
+  const creditDebt = activeAccounts.filter((a) => a.type === "credit").reduce((sum, a) => sum + creditInfo(a).spent, 0);
+  // Total ya pagando tarjetas
+  const afterDebt = moneyTotal - creditDebt;
 
   const thisMonth = DateUtil.monthKey();
   const txThisMonth = transactions.filter((t) => DateUtil.monthKey(t.date) === thisMonth);
@@ -34,11 +38,22 @@ async function renderDashboard(root) {
 
   // ---- Stats: saldo total + gasto del mes ----
   root.appendChild(
-    el("div", { class: "stats-grid" }, [
-      el("div", { class: "stat-card primary" }, [
-        el("div", { class: "stat-label" }, "Saldo total"),
-        el("div", { class: "stat-value" }, Money.format(totalBalance)),
+    el("div", { class: "stat-card primary hero-total" }, [
+      el("div", { class: "stat-label" }, "Dinero total"),
+      el("div", { class: "stat-value big" }, Money.format(moneyTotal)),
+      el("div", { class: "debt-row" }, [
+        el("span", {}, "Por pagar en tarjetas"),
+        el("strong", {}, `−${Money.format(creditDebt)}`),
       ]),
+      el("div", { class: "after-debt" }, [
+        el("span", {}, "Total ya pagando tarjetas"),
+        el("strong", {}, Money.format(afterDebt)),
+      ]),
+    ])
+  );
+
+  root.appendChild(
+    el("div", { class: "stats-grid", style: "grid-template-columns:1fr;" }, [
       el("div", { class: "stat-card secondary" }, [
         el("div", { class: "stat-label" }, "Gasto del mes"),
         el("div", { class: "stat-value" }, Money.format(expenseThisMonth)),
