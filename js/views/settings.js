@@ -48,7 +48,7 @@ async function renderSettings(root) {
   root.appendChild(
     el("div", { class: "card" }, [
       el("div", { class: "card-title" }, "Respaldo"),
-      el("div", { class: "text-dim", style: "font-size:13px;margin-bottom:12px;" }, "Tus datos viven solo en este iPhone. Haz un respaldo de vez en cuando por si cambias de teléfono o borras el navegador."),
+      el("div", { class: "text-dim", style: "font-size:13px;margin-bottom:12px;" }, "Tus datos viven solo en este iPhone. Haz un respaldo cada semana por si cambias de teléfono o borras el navegador. Ojo: Safari y el icono de la pantalla de inicio guardan datos por separado; exporta e importa desde la misma."),
       el("div", { class: "btn-row" }, [
         el("button", { class: "btn btn-secondary", id: "btn-export" }, "Exportar respaldo"),
         el("button", { class: "btn btn-secondary", id: "btn-import" }, "Importar respaldo"),
@@ -105,7 +105,51 @@ async function exportBackup() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  await DB.setMeta("lastBackupAt", new Date().toISOString());
   toast("Respaldo descargado", "success");
+}
+
+const BACKUP_EVERY_DAYS = 7;
+
+/**
+ * Aviso para respaldar: aparece en Inicio si no hay respaldo reciente (7 días).
+ * "Más tarde" lo oculta 2 días. No aparece si aún no tienes datos.
+ */
+async function backupReminderCard() {
+  const [accounts, transactions, last, snoozeUntil] = await Promise.all([
+    DB.getAll("accounts"),
+    DB.getAll("transactions"),
+    DB.getMeta("lastBackupAt", null),
+    DB.getMeta("backupSnoozeUntil", null),
+  ]);
+  if (accounts.length === 0 && transactions.length === 0) return null;
+
+  const today = DateUtil.todayISO();
+  if (snoozeUntil && snoozeUntil >= today) return null;
+
+  const days = last ? DateUtil.daysBetween(DateUtil.toISO(new Date(last)), today) : null;
+  if (days !== null && days < BACKUP_EVERY_DAYS) return null;
+
+  const text = days === null
+    ? "Aún no has descargado un respaldo de tus datos."
+    : `Tu último respaldo fue hace ${days} ${days === 1 ? "día" : "días"}.`;
+
+  return el("div", { class: "card backup-reminder" }, [
+    el("div", { class: "card-title" }, "Respalda tus datos"),
+    el("div", { class: "text-dim", style: "font-size:13px;margin-bottom:12px;" }, `${text} Guárdalo en Archivos o iCloud Drive.`),
+    el("div", { class: "btn-row" }, [
+      el("button", { class: "btn", onclick: exportBackup }, "Exportar ahora"),
+      el("button", {
+        class: "btn btn-secondary",
+        onclick: async () => {
+          const d = new Date();
+          d.setDate(d.getDate() + 2);
+          await DB.setMeta("backupSnoozeUntil", DateUtil.toISO(d));
+          Router.render();
+        },
+      }, "Más tarde"),
+    ]),
+  ]);
 }
 
 async function importBackup(e) {

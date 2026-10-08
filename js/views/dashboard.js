@@ -37,6 +37,10 @@ async function renderDashboard(root) {
     ])
   );
 
+  // ---- Aviso para respaldar (si toca) ----
+  const backupReminder = await backupReminderCard();
+  if (backupReminder) root.appendChild(backupReminder);
+
   // ---- Stats: saldo total + gasto del mes ----
   root.appendChild(
     el("div", { class: "stat-card primary hero-total" }, [
