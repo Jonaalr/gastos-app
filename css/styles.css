@@ -1,24 +1,25 @@
 :root {
   color-scheme: dark;
-  --card-bg: rgba(30, 42, 74, 0.62);
-  --nav-bg: rgba(15, 23, 42, 0.92);
-  --page-bg: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
-  --fill: rgba(255, 255, 255, 0.07);
-  --bg: #0f172a;
-  --bg-elevated: #1a2540;
-  --bg-card: #1e2a4a;
-  --border: #2a3a5c;
-  --text: #f1f5f9;
-  --text-dim: #94a3b8;
-  --accent: #16a34a;
-  --accent-dim: #14532d;
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --income: #22c55e;
-  --expense: #f87171;
-  --glass: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --blue: #3b82f6;
+  --card-bg: #1c1c1e;
+  --nav-bg: rgba(44, 44, 46, 0.86);
+  --page-bg: #000000;
+  --fill: rgba(255, 255, 255, 0.08);
+  --field: #2c2c2e;
+  --bg: #000000;
+  --bg-elevated: #2c2c2e;
+  --bg-card: #1c1c1e;
+  --border: #38383a;
+  --text: #ffffff;
+  --text-dim: #98989d;
+  --accent: #30d158;
+  --accent-dim: #14321f;
+  --danger: #ff453a;
+  --warn: #ffd60a;
+  --income: #30d158;
+  --expense: #ff453a;
+  --glass: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --blue: #0a84ff;
   --radius: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -43,6 +44,7 @@ html, body {
   --nav-bg: rgba(255, 255, 255, 0.92);
   --page-bg: #f2f2f7;
   --fill: rgba(0, 0, 0, 0.05);
+  --field: #f2f2f7;
   --bg: #f2f2f7;
   --bg-elevated: #ffffff;
   --bg-card: #ffffff;
@@ -853,3 +855,31 @@ body[data-route="/import"] .fab { display: none; }
 /* ---------- Logos de bancos ---------- */
 .icon-chip .bank-logo { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; display: block; }
 .icon-chip { overflow: hidden; }
+
+/* ---------- Formularios y hojas (mockups "Claro" y "Oscuro") ---------- */
+.form-group label { color: var(--text-dim); font-size: 13px; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  background-color: var(--field);
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  height: 48px;
+  padding: 0 14px;
+  outline: none;
+}
+.form-group textarea { height: auto; padding: 12px 14px; }
+.form-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2398989d' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 10l5-5 5 5M7 14l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus { border-color: var(--accent); }
+.sheet { background: var(--bg-card); }
+.sheet-header h2 { color: var(--text); }
