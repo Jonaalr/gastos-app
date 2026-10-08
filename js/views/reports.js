@@ -27,6 +27,7 @@ async function renderReports(root, params) {
     .sort((a, b) => b.amount - a.amount);
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
+  root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/reports"));
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/reports?month=${newMonth}`)));
 
   // ---- Gasto por categoría ----

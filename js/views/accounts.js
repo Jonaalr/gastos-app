@@ -53,6 +53,7 @@ async function renderAccounts(root) {
       ]),
     ])
   );
+  root.appendChild(sectionTabs(DINERO_TABS, "/accounts"));
 
   root.appendChild(
     el(

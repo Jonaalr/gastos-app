@@ -5,11 +5,40 @@
 
 const NAV_ITEMS = [
   { path: "/dashboard", icon: "home", label: "Inicio" },
-  { path: "/transactions", icon: "list", label: "Movs" },
+  { path: "/accounts", icon: "bank", label: "Dinero" },
   { path: "/budgets", icon: "pie", label: "Presup." },
   { path: "/calendar", icon: "calendar", label: "Pagos" },
-  { path: "/reports", icon: "chart", label: "Reportes" },
   { path: "/settings", icon: "gear", label: "Ajustes" },
+];
+
+/** Qué pestaña de la barra se marca para cada pantalla (Dinero y Presupuestos agrupan dos vistas) */
+const NAV_GROUPS = {
+  "/accounts": "/accounts",
+  "/transactions": "/accounts",
+  "/budgets": "/budgets",
+  "/reports": "/budgets",
+};
+function navActivePath(path) {
+  return NAV_GROUPS[path] || path;
+}
+
+/** Selector de vistas dentro de una sección (Dinero: Cuentas | Movimientos; Presupuestos: Presupuestos | Reportes) */
+function sectionTabs(options, activePath) {
+  const wrap = el("div", { class: "segmented section-tabs" });
+  for (const opt of options) {
+    const btn = el("button", { type: "button", class: opt.path === activePath ? "active" : "" }, opt.label);
+    btn.addEventListener("click", () => { if (opt.path !== activePath) Router.navigate(opt.path); });
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+const DINERO_TABS = [
+  { path: "/accounts", label: "Cuentas" },
+  { path: "/transactions", label: "Movimientos" },
+];
+const PRESUPUESTO_TABS = [
+  { path: "/budgets", label: "Presupuestos" },
+  { path: "/reports", label: "Reportes" },
 ];
 
 function buildShell() {

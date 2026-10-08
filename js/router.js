@@ -45,7 +45,7 @@ const Router = {
 
   updateNav(path) {
     document.querySelectorAll(".nav-item").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.path === path);
+      btn.classList.toggle("active", btn.dataset.path === (typeof navActivePath === "function" ? navActivePath(path) : path));
     });
   },
 };

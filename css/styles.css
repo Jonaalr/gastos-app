@@ -864,8 +864,12 @@ body[data-route="/import"] .fab { display: none; }
 .calendar-card-name { min-width: 0; }
 .calendar-card-name .card-title { margin-bottom: 2px; }
 
+/* ---------- Pestañas de sección (Dinero, Presupuestos) ---------- */
+.section-tabs { margin: 0 0 14px; }
+
 /* ---------- Conciliación: filas con más aire ---------- */
 body[data-route="/reconcile"] .fab { display: none; }
+body[data-route="/accounts"] .fab { display: none; }
 .rc-group { padding: 14px 16px 6px; }
 .rc-group .imp-check-badge { margin-top: 0; margin-bottom: 4px; }
 .rc-empty { padding: 10px 2px 14px; }

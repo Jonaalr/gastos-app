@@ -19,6 +19,7 @@ async function renderTransactions(root, params) {
   const expense = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Movimientos")]));
+  root.appendChild(sectionTabs(DINERO_TABS, "/transactions"));
 
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/transactions?month=${newMonth}`)));
 

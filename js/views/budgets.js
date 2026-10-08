@@ -20,6 +20,7 @@ async function renderBudgets(root, params) {
   }
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Presupuestos")]));
+  root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/budgets"));
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/budgets?month=${newMonth}`)));
 
   const totalLimit = budgets.reduce((s, b) => s + b.limitCents, 0);
