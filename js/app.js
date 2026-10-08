@@ -46,6 +46,7 @@ function registerRoutes() {
   Router.register("/import", renderImportStatement);
   Router.register("/receivables", renderReceivables);
   Router.register("/account", renderAccountDetail);
+  Router.register("/reconcile", renderReconcile);
 }
 
 async function main() {

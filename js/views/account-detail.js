@@ -55,6 +55,9 @@ async function renderAccountDetail(root, params) {
         isCredit
           ? el("button", { class: "btn btn-secondary btn-sm", onclick: () => Router.navigate(`/import?account=${id}`) }, "Importar estado (PDF)")
           : null,
+        isCredit
+          ? el("button", { class: "btn btn-secondary btn-sm", onclick: () => Router.navigate(`/reconcile?account=${id}`) }, "Conciliar")
+          : null,
       ]),
     ])
   );
