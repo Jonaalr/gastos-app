@@ -858,6 +858,12 @@ body[data-route="/import"] .fab { display: none; }
   font-weight: 600;
 }
 
+/* ---------- Calendario: logo del banco en cada tarjeta ---------- */
+.calendar-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.calendar-card-head .icon-chip { flex-shrink: 0; }
+.calendar-card-name { min-width: 0; }
+.calendar-card-name .card-title { margin-bottom: 2px; }
+
 /* ---------- Conciliación: filas con más aire ---------- */
 body[data-route="/reconcile"] .fab { display: none; }
 .rc-group { padding: 14px 16px 6px; }

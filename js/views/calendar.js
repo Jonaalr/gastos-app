@@ -25,8 +25,13 @@ async function renderCalendar(root) {
     const spent = Math.max(0, -card.balanceCents);
     root.appendChild(
       el("div", { class: "card" }, [
-        el("div", { class: "card-title" }, card.name),
-        el("div", { class: "text-dim", style: "font-size:12px;margin-top:-6px;margin-bottom:6px;" }, spent ? `Gastado ${Money.format(spent)}` : "Sin saldo gastado"),
+        el("div", { class: "calendar-card-head" }, [
+          el("div", { class: "icon-chip" }, [accountBadge(card)]),
+          el("div", { class: "calendar-card-name" }, [
+            el("div", { class: "card-title" }, card.name),
+            el("div", { class: "text-dim", style: "font-size:12px;" }, spent ? `Gastado ${Money.format(spent)}` : "Sin saldo gastado"),
+          ]),
+        ]),
         nextCut
           ? el("div", { class: "list-item" }, [
               el("div", { class: "icon" }, iconNode("calendar")),
