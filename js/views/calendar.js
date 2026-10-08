@@ -10,6 +10,7 @@ async function renderCalendar(root) {
   const recurring = transactions.filter((t) => t.isRecurring && t.recurringDay);
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Calendario de pagos")]));
+  await renderDueRecurring(root);
 
   const today = DateUtil.todayISO();
   const badgeFor = (iso) => {
@@ -51,9 +52,11 @@ async function renderCalendar(root) {
   // Domiciliados: agrupar por comercio+categoría para no repetir cada transacción pasada
   const events = [];
   const seen = new Set();
+  const recStatus = await loadRecurringStatus();
   for (const t of recurring) {
     const key = `${t.merchant}-${t.categoryId}-${t.accountId}`;
     if (seen.has(key)) continue;
+    if ((recStatus[recurringSeriesKey(t)] || {}).cancelled) continue;
     seen.add(key);
     events.push({
       date: DateUtil.nextOccurrence(t.recurringDay, new Date()),
