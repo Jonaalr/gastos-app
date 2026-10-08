@@ -883,3 +883,56 @@ body[data-route="/import"] .fab { display: none; }
 .form-group textarea:focus { border-color: var(--accent); }
 .sheet { background: var(--bg-card); }
 .sheet-header h2 { color: var(--text); }
+
+/* ---------- Selector propio (menú flotante del mockup) ---------- */
+.fsel { position: relative; width: 100%; }
+.fsel-btn {
+  width: 100%;
+  height: 48px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+.fsel-btn:disabled { opacity: 0.6; }
+.fsel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fsel-chev { color: var(--text-dim); display: flex; }
+.fsel-backdrop { position: fixed; inset: 0; z-index: 1000; }
+.fsel-menu {
+  position: fixed;
+  max-height: 60vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-card);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  padding: 4px 0;
+  z-index: 1001;
+}
+.fsel-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 0.5px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+}
+.fsel-item:last-child { border-bottom: 0; }
+.fsel-item.on { background: var(--accent-dim); }
+.fsel-check { color: var(--accent); font-weight: 700; }
