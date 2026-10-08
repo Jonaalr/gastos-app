@@ -34,6 +34,7 @@ let accountsFilter = "all";
 
 const ACCOUNT_FILTERS = [
   { id: "all", label: "Todas" },
+  { id: "cash", label: "Efectivo" },
   { id: "debit", label: "Débito" },
   { id: "credit", label: "Crédito" },
   { id: "savings", label: "Rendimientos" },
@@ -64,7 +65,7 @@ async function renderAccounts(root) {
   );
 
   const savingsAccounts = accounts.filter((a) => a.type === "savings" && a.annualRatePct);
-  if (savingsAccounts.length > 0 && (accountsFilter === "all" || accountsFilter === "savings")) {
+  if (savingsAccounts.length > 0 && accountsFilter === "savings") {
     root.appendChild(await renderSavingsSummary(savingsAccounts));
   }
 
@@ -322,7 +323,7 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <label>Base de días del interés</label>
         <select id="f-basis">
           <option value="365" ${savingsRules(data).dayBasis === 365 ? "selected" : ""}>365 días</option>
-          <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días (Revolut)</option>
+          <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días</option>
         </select>
       </div>
       <div class="form-group">

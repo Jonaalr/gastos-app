@@ -751,3 +751,6 @@ body[data-route="/import"] .fab { display: none; }
   pointer-events: none;
 }
 .sheet-header { touch-action: none; }
+
+/* Gastado en rojo dentro del detalle de tarjeta de crédito */
+.balance-hero .debt { color: var(--danger); font-weight: 600; }

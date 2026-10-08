@@ -64,8 +64,13 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   const catOptionsExpense = await renderCategoryOptions("expense");
   const catOptionsIncome = await renderCategoryOptions("income");
 
-  function accountOptions(selectedId) {
+  // Gasto: sin cuentas de rendimiento. Ingreso: sin tarjetas de crédito. Transferencia: todas.
+  // Siempre en orden alfabético.
+  function accountOptions(selectedId, type = data.type) {
     return accounts
+      .filter((a) => (type === "expense" ? a.type !== "savings" : type === "income" ? a.type !== "credit" : true))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "es"))
       .map((a) => `<option value="${a.id}" ${a.id === selectedId ? "selected" : ""}>${a.name}</option>`)
       .join("");
   }
@@ -220,7 +225,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
     <div class="form-group" id="group-to-account" style="display:${data.type === "transfer" ? "block" : "none"}">
       <label>Cuenta destino</label>
-      <select id="f-to-account">${accountOptions(data.toAccountId)}</select>
+      <select id="f-to-account">${accountOptions(data.toAccountId, "transfer")}</select>
     </div>
 
     <div class="form-group" id="group-merchant" style="display:${data.type === "transfer" ? "none" : "block"}">
@@ -282,6 +287,10 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       sheet.querySelector("#group-split").style.display = currentType === "expense" ? "block" : "none";
       sheet.querySelector("#group-recurring").style.display = currentType === "expense" ? "block" : "none";
       sheet.querySelector("#label-account").textContent = currentType === "transfer" ? "Cuenta origen" : "Cuenta";
+      const acctSel = sheet.querySelector("#f-account");
+      const keep = parseInt(acctSel.value, 10);
+      acctSel.innerHTML = accountOptions(keep, currentType);
+      if (acctSel.value !== String(keep) && acctSel.options.length) acctSel.selectedIndex = 0;
       const catSelect = sheet.querySelector("#f-category");
       catSelect.innerHTML = currentType === "income" ? catOptionsIncome : catOptionsExpense;
     });

@@ -44,7 +44,12 @@ async function renderAccountDetail(root, params) {
     el("div", { class: "card balance-hero" }, [
       el("div", { class: "label" }, isCredit ? "Disponible" : "Saldo actual"),
       el("div", { class: "amount" }, Money.format(isCredit ? info.available : account.balanceCents)),
-      el("div", { class: "label" }, isCredit ? `Gastado ${Money.format(info.spent)} · límite ${Money.format(info.limit)}` : accountSubtitle(account)),
+      isCredit
+        ? el("div", { class: "label" }, [
+            el("span", { class: "debt" }, `Gastado ${Money.format(info.spent)}`),
+            ` · límite ${Money.format(info.limit)}`,
+          ])
+        : el("div", { class: "label" }, accountSubtitle(account)),
       el("div", { class: "btn-row", style: "margin-top:14px;" }, [
         el("button", { class: "btn btn-secondary btn-sm", onclick: () => openAccountSheet({ existing: account, onSaved: () => Router.render() }) }, "Editar"),
         isCredit
