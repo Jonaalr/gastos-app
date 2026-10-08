@@ -858,6 +858,26 @@ body[data-route="/import"] .fab { display: none; }
   font-weight: 600;
 }
 
+/* ---------- Conciliación: filas con más aire ---------- */
+body[data-route="/reconcile"] .fab { display: none; }
+.rc-group { padding: 14px 16px 6px; }
+.rc-group .imp-check-badge { margin-top: 0; margin-bottom: 4px; }
+.rc-empty { padding: 10px 2px 14px; }
+.rc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 2px;
+  border-top: 0.5px solid var(--border);
+}
+.rc-main { min-width: 0; flex: 1; }
+.rc-merchant {
+  font-size: 15px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rc-meta { font-size: 12px; color: var(--text-dim); margin-top: 3px; line-height: 1.35; }
+.rc-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.rc-amount { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.rc-action { min-width: 84px; border-radius: 14px; padding: 7px 14px; }
+
 /* ---------- Iconos SVG ---------- */
 .ico { display: inline-flex; align-items: center; justify-content: center; color: var(--text); line-height: 0; }
 .ico svg { display: block; }

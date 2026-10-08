@@ -269,23 +269,23 @@ function renderReconcileResult(container, result, handlers = {}) {
 }
 
 function reconcileGroup(title, tone, rows) {
-  const list = el("div", { class: "card" }, [el("div", { class: `imp-check-badge ${tone}` }, title)]);
+  const list = el("div", { class: "card rc-group" }, [el("div", { class: `imp-check-badge ${tone}` }, title)]);
   if (rows.length === 0) {
-    list.appendChild(el("div", { class: "muted" }, "Nada por aquí."));
+    list.appendChild(el("div", { class: "muted rc-empty" }, "Nada por aquí."));
     return list;
   }
   for (const r of rows) {
-    const side = [el("div", { class: "amount" }, Money.format(r.amount))];
+    const side = [el("div", { class: "rc-amount" }, Money.format(r.amount))];
     if (r.action) {
-      side.push(el("button", { class: "btn btn-secondary btn-sm", onclick: r.action.run }, r.action.label));
+      side.push(el("button", { class: "btn btn-secondary btn-sm rc-action", onclick: r.action.run }, r.action.label));
     }
     list.appendChild(
-      el("div", { class: "list-item" }, [
-        el("div", { class: "grow" }, [
-          el("div", {}, r.merchant),
-          el("div", { class: "muted" }, `${DateUtil.formatShort(r.date)} · ${r.note}`),
+      el("div", { class: "rc-row" }, [
+        el("div", { class: "rc-main" }, [
+          el("div", { class: "rc-merchant" }, r.merchant),
+          el("div", { class: "rc-meta" }, `${DateUtil.formatShort(r.date)} · ${r.note}`),
         ]),
-        el("div", { style: "display:flex;flex-direction:column;align-items:flex-end;gap:6px;" }, side),
+        el("div", { class: "rc-side" }, side),
       ])
     );
   }
