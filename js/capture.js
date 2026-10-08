@@ -33,12 +33,22 @@ function openAddMenu() {
     ]),
   ]);
 
+  const voiceBtn = el("button", { class: "add-menu-item", type: "button" }, [
+    el("div", { class: "add-menu-icon" }, "◉"),
+    el("div", { class: "add-menu-text" }, [
+      el("div", { class: "add-menu-title" }, "Por voz"),
+      el("div", { class: "add-menu-sub" }, "Dicta el gasto y yo lleno los datos"),
+    ]),
+  ]);
+
   const actions = new Map([
     [writeBtn, () => openTransactionSheet({ onSaved: () => Router.render() })],
     [captureBtn, () => pickCaptureImage()],
+    [voiceBtn, () => openVoiceSheet()],
   ]);
   writeBtn.addEventListener("click", () => { close(); actions.get(writeBtn)(); });
   captureBtn.addEventListener("click", () => { close(); actions.get(captureBtn)(); });
+  voiceBtn.addEventListener("click", () => { close(); actions.get(voiceBtn)(); });
 
   // Se pinta la opción bajo el dedo (igual que el menú desplegable); al soltar, se elige
   let hovered = null;
@@ -68,7 +78,7 @@ function openAddMenu() {
   // Mientras el menú está abierto, deslizar no debe mover la página de atrás
   backdrop.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
-  menu.append(writeBtn, captureBtn);
+  menu.append(writeBtn, captureBtn, voiceBtn);
   backdrop.appendChild(menu);
   backdrop.addEventListener("click", (e) => {
     if (e.target === backdrop) close();
@@ -256,4 +266,146 @@ function pickAccountForBank(bank, accounts) {
     if (preferred) return preferred;
   }
   return matches[0];
+}
+
+// ---------- Registro por voz ----------
+// El audio lo procesa el reconocimiento de voz del navegador (en iPhone, Apple).
+// Lo que se guarda sigue siendo solo en tu teléfono.
+
+const VOICE_LANG = "es-MX";
+
+function voiceRecognizer() {
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  return Ctor ? new Ctor() : null;
+}
+
+/** Abre la hoja de dictado: un toque en el micrófono empieza a escuchar. */
+function openVoiceSheet() {
+  const rec = voiceRecognizer();
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const sheet = el("div", { class: "sheet" });
+  backdrop.appendChild(sheet);
+  document.body.appendChild(backdrop);
+  const close = () => { try { rec && rec.abort(); } catch (_) {} backdrop.remove(); };
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+
+  const status = el("p", { class: "muted", style: "text-align:center;margin:8px 0;" }, "");
+  const heard = el("div", { class: "voice-heard" }, "");
+  const micBtn = el("button", { class: "voice-mic", type: "button", "aria-label": "Dictar" }, "◉");
+  const hint = el("p", { class: "muted", style: "font-size:12px;text-align:center;" },
+    "Di, por ejemplo: «gasté 150 pesos en Oxxo» o «ayer compré 320 en Costco con Banamex»."
+  );
+
+  sheet.append(
+    el("div", { class: "sheet-header" }, [
+      el("h2", {}, "Dicta el gasto"),
+      el("button", { class: "sheet-close", type: "button", onclick: close }, "✕"),
+    ]),
+    el("div", { style: "display:flex;justify-content:center;margin:12px 0;" }, [micBtn]),
+    status,
+    heard,
+    hint,
+    el("p", { class: "muted", style: "font-size:11px;text-align:center;margin-top:10px;" },
+      "El audio lo procesa el reconocimiento de voz de tu navegador (en iPhone, Apple). Los gastos se guardan solo en tu teléfono."
+    )
+  );
+
+  if (!rec) {
+    status.textContent = "Tu navegador no permite dictar. Usa el micrófono del teclado al escribir el gasto.";
+    micBtn.disabled = true;
+    return;
+  }
+
+  rec.lang = VOICE_LANG;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  let listening = false;
+
+  rec.onresult = async (e) => {
+    const text = e.results[0][0].transcript;
+    listening = false;
+    micBtn.classList.remove("on");
+    heard.textContent = `«${text}»`;
+    status.textContent = "";
+    const accounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
+    const parsed = parseVoice(text, accounts);
+    close();
+    if (!parsed.amountCents) {
+      toast("No escuché un monto. Intenta de nuevo o escribe el gasto.", "error");
+      return;
+    }
+    openTransactionSheet({
+      prefill: {
+        type: "expense",
+        amountCents: parsed.amountCents,
+        merchant: parsed.merchant,
+        date: parsed.date,
+        accountId: parsed.accountId,
+        source: "voice",
+        notice: "Datos dictados · revísalos antes de guardar",
+      },
+      onSaved: () => Router.render(),
+    });
+  };
+  rec.onerror = (e) => {
+    listening = false;
+    micBtn.classList.remove("on");
+    const msg = e.error === "not-allowed" ? "Activa el permiso de micrófono para Safari en Ajustes."
+      : e.error === "no-speech" ? "No escuché nada. Toca el micrófono y vuelve a intentar."
+      : "No pude escuchar. Intenta de nuevo.";
+    status.textContent = msg;
+  };
+  rec.onend = () => {
+    if (listening) { listening = false; micBtn.classList.remove("on"); status.textContent = "Toca el micrófono para volver a dictar."; }
+  };
+
+  micBtn.addEventListener("click", () => {
+    if (listening) { try { rec.stop(); } catch (_) {} return; }
+    listening = true;
+    micBtn.classList.add("on");
+    status.textContent = "Escuchando… toca de nuevo para terminar.";
+    heard.textContent = "";
+    try { rec.start(); } catch (_) { listening = false; micBtn.classList.remove("on"); status.textContent = "No pude iniciar el micrófono."; }
+  });
+}
+
+/**
+ * Convierte una frase dictada en datos de gasto.
+ * Ej.: "gasté 150 pesos en Oxxo" -> 15000, Oxxo, hoy.
+ *      "ayer compré 320 en Costco con Banamex" -> 32000, Costco, ayer, cuenta Banamex.
+ */
+function parseVoice(text, accounts = []) {
+  const raw = String(text || "").trim();
+  const lower = raw.toLowerCase();
+
+  const amountM = lower.match(/(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/);
+  let amountCents = 0;
+  if (amountM) {
+    const n = amountM[1].replace(/\s/g, "").replace(/,(?=\d{3}\b)/g, "").replace(",", ".");
+    amountCents = Money.toCents(n);
+  }
+
+  let date = DateUtil.todayISO();
+  if (/\bayer\b/.test(lower)) {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    date = DateUtil.toISO(d);
+  }
+
+  let merchant = "";
+  const merchantM = raw.match(/\ben\s+(?:la\s+|el\s+)?([^,.;]+?)(?=\s+con\s|\s+el\s+\d|\s+ayer\b|\s+hoy\b|$)/i);
+  if (merchantM) merchant = merchantM[1].trim();
+  if (merchant) merchant = merchant.charAt(0).toUpperCase() + merchant.slice(1);
+
+  let accountId = null;
+  for (const a of accounts) {
+    const name = (a.name || "").toLowerCase();
+    if (name && lower.includes(name)) { accountId = a.id; break; }
+  }
+  if (!accountId) {
+    const bank = CAPTURE_BANKS.find((b) => b.re.test(lower));
+    const acc = bank ? pickAccountForBank(bank, accounts) : null;
+    if (acc) accountId = acc.id;
+  }
+
+  return { amountCents, merchant, date, accountId };
 }
