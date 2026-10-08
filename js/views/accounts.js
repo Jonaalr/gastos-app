@@ -105,7 +105,7 @@ function renderAccountCard(a) {
   }, [
     el("div", { class: "flex-between" }, [
       el("div", { class: "account-head" }, [
-        el("div", { class: "icon-chip" }, accountIcon(a.type)),
+        el("div", { class: "icon-chip" }, accountBadge(a)),
         el("div", {}, [el("div", { class: "title" }, a.name), el("div", { class: "meta" }, accountSubtitle(a))]),
       ]),
       el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", "data-edit-account": a.id }, "Editar"),

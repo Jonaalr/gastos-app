@@ -161,7 +161,7 @@ async function renderDashboard(root) {
       const isCredit = a.type === "credit" && a.creditLimitCents;
       carousel.appendChild(
         el("div", { class: "account-pill", onclick: () => Router.navigate(`/account?id=${a.id}`) }, [
-          el("div", { class: "icon-chip" }, accountIcon(a.type)),
+          el("div", { class: "icon-chip" }, accountBadge(a)),
           el("div", { class: "pill-name" }, a.name),
           el("div", { class: "pill-amount" }, Money.format(isCredit ? creditInfo(a).available : a.balanceCents)),
           el("div", { class: "pill-sub" }, isCredit ? "disponible" : accountSubtitle(a)),
@@ -203,6 +203,34 @@ async function renderDashboard(root) {
   });
 }
 
+/** Logo del banco según el nombre o banco de la cuenta (icons/banks/*.png). Null si no hay logo. */
+const BANK_LOGOS = [
+  [/revolut/i, "revolut"],
+  [/nu\b|nubank|cajita/i, "nubank"],
+  [/didi/i, "didi"],
+  [/banamex/i, "banamex"],
+  [/bbva/i, "bbva"],
+  [/mercado\s?pago/i, "mercadopago"],
+  [/ual[aá]/i, "uala"],
+  [/spin/i, "spin"],
+  [/cashi/i, "cashi"],
+];
+function bankLogoFor(account) {
+  const text = `${account.name || ""} ${account.bank || ""}`;
+  const hit = BANK_LOGOS.find(([re]) => re.test(text));
+  return hit ? `icons/banks/${hit[1]}.png` : null;
+}
+/** Nodo para la cuenta: logo del banco si lo hay, si no el icono por tipo */
+function accountBadge(account) {
+  const src = bankLogoFor(account);
+  if (!src) return accountIcon(account.type);
+  const img = document.createElement("img");
+  img.className = "bank-logo";
+  img.src = src;
+  img.alt = "";
+  img.loading = "lazy";
+  return img;
+}
 function accountIcon(type) {
   const name = { cash: "banknote", debit: "card", credit: "card", savings: "bank" }[type] || "banknote";
   return iconNode(name, "ico", 20);
