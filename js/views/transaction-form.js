@@ -23,7 +23,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     merchant: prefill?.merchant || "",
     note: "",
     date: prefill?.date || DateUtil.todayISO(),
-    isRecurring: false,
+    isRecurring: prefill?.isRecurring || false,
     recurringDay: null,
     source: prefill?.source || "manual",
     split: null,

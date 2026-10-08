@@ -74,7 +74,10 @@ async function renderCalendar(root) {
   }
 
   if (events.length > 0) {
-    const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Domiciliados")]);
+    const card = el("div", { class: "card" }, [
+      el("div", { class: "card-title" }, "Domiciliados"),
+      el("div", { class: "text-dim", style: "font-size:12px;margin-top:-6px;margin-bottom:6px;" }, "Pagos que se cobran solos cada mes. Toca + para agregar uno."),
+    ]);
     for (const ev of events) {
       card.appendChild(
         el("div", { class: "list-item" }, [

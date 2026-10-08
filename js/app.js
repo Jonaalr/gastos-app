@@ -20,7 +20,14 @@ function buildShell() {
 
   const fab = el("button", { class: "fab", id: "fab-add" }, "+");
   document.body.appendChild(fab);
-  fab.addEventListener("click", () => openAddMenu());
+  fab.addEventListener("click", () => {
+    // En Pagos, el + agrega un pago domiciliado (aparece en la lista de Pagos)
+    if (document.body.dataset.route === "/calendar") {
+      openTransactionSheet({ prefill: { type: "expense", isRecurring: true }, onSaved: () => Router.render() });
+      return;
+    }
+    openAddMenu();
+  });
 
   const nav = el("div", { class: "bottom-nav" });
   for (const item of NAV_ITEMS) {
