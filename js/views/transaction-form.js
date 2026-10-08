@@ -58,11 +58,42 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
         html += `<option value="${sub.id}">&nbsp;&nbsp;↳ ${sub.name}</option>`;
       }
     }
+    html += `<option value="__new__">+ Nueva categoría…</option>`;
     return html;
   }
 
-  const catOptionsExpense = await renderCategoryOptions("expense");
-  const catOptionsIncome = await renderCategoryOptions("income");
+  let catOptionsExpense = await renderCategoryOptions("expense");
+  let catOptionsIncome = await renderCategoryOptions("income");
+  async function refreshCategoryOptions() {
+    catOptionsExpense = await renderCategoryOptions("expense");
+    catOptionsIncome = await renderCategoryOptions("income");
+  }
+
+  // "+ Nueva categoría…": abre la hoja de categoría y, al guardar, la deja seleccionada
+  function wireNewCategory() {
+    const sel = sheet.querySelector("#f-category");
+    if (!sel) return;
+    sel.addEventListener("change", async () => {
+      if (sel.value !== "__new__") return;
+      const kind = currentType === "income" ? "income" : "expense";
+      sel.value = "";
+      sel.dispatchEvent(new Event("change", { bubbles: true }));
+      openCategorySheet({
+        kind,
+        onSaved: async () => {
+          await refreshCategoryOptions();
+          const latest = (await DB.getAllByIndex("categories", "kind", kind))
+            .filter((c) => !c.parentId)
+            .sort((a, b) => b.id - a.id)[0];
+          const target = sheet.querySelector("#f-category");
+          if (!target) return;
+          target.innerHTML = currentType === "income" ? catOptionsIncome : catOptionsExpense;
+          if (latest) target.value = String(latest.id);
+          target.dispatchEvent(new Event("change", { bubbles: true }));
+        },
+      });
+    });
+  }
 
   // Gasto: sin cuentas de rendimiento. Ingreso: sin tarjetas de crédito. Transferencia: todas.
   // Siempre en orden alfabético.
@@ -270,6 +301,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     </div>
   `;
 
+  wireNewCategory();
   if (data.categoryId) {
     const catSelect = sheet.querySelector("#f-category");
     if (catSelect) catSelect.value = data.categoryId;
