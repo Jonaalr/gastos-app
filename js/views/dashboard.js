@@ -16,7 +16,7 @@ async function renderDashboard(root) {
   const thisMonth = DateUtil.monthKey();
   const txThisMonth = transactions.filter((t) => DateUtil.monthKey(t.date) === thisMonth);
   const incomeThisMonth = txThisMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
-  const expenseThisMonth = txThisMonth.filter((t) => t.type === "expense").reduce((s, t) => s + t.amountCents, 0);
+  const expenseThisMonth = txThisMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
   const recent = [...transactions].sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)).slice(0, 8);
   const categories = await DB.getAll("categories");
@@ -46,6 +46,21 @@ async function renderDashboard(root) {
       ]),
     ])
   );
+
+  // ---- Por cobrar (solo si hay gastos compartidos pendientes) ----
+  const receivable = await receivablesTotal();
+  if (receivable.count > 0) {
+    root.appendChild(
+      el("div", { class: "receivable-card", onclick: () => Router.navigate("/receivables") }, [
+        el("div", {}, [
+          el("div", { class: "stat-label" }, "Por cobrar"),
+          el("div", { class: "receivable-amount" }, Money.format(receivable.total)),
+          el("div", { class: "stat-sub" }, `${receivable.count} ${receivable.count === 1 ? "persona te debe" : "personas te deben"}`),
+        ]),
+        el("div", { class: "receivable-arrow" }, "›"),
+      ])
+    );
+  }
 
   // ---- Cuentas (carrusel horizontal) ----
   if (activeAccounts.length === 0) {
@@ -130,7 +145,7 @@ function renderTxRow(t, catMap, accMap) {
     el("div", { class: `icon tx-${kind}` }, isTransfer ? "🔁" : cat ? cat.icon : "📦"),
     el("div", { class: "main" }, [
       el("div", { class: "title" }, isTransfer ? "Transferencia" : t.merchant || (cat ? cat.name : "Sin descripción")),
-      el("div", { class: "meta" }, `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}`),
+      el("div", { class: "meta" }, `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}${t.split ? ` · entre varios, tu parte ${Money.format(t.split.myShareCents)}` : ""}`),
     ]),
     el("div", { class: `amount ${kind === "transfer" ? "" : kind}` }, `${sign}${Money.format(t.amountCents)}`),
   ]);

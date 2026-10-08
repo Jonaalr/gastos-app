@@ -62,7 +62,7 @@
  */
 
 const DB_NAME = "gastos_app_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -103,6 +103,15 @@ function openDB() {
 
       if (!db.objectStoreNames.contains("meta")) {
         db.createObjectStore("meta", { keyPath: "key" });
+      }
+
+      // v2: personas con quienes compartes gastos y cobros que te hacen
+      if (!db.objectStoreNames.contains("people")) {
+        db.createObjectStore("people", { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains("collections")) {
+        const store = db.createObjectStore("collections", { keyPath: "id", autoIncrement: true });
+        store.createIndex("personId", "personId");
       }
     };
 
@@ -162,12 +171,14 @@ const DB = {
 
   // ---------- Export / Import de respaldo ----------
   async exportAll() {
-    const [accounts, categories, transactions, budgets, metaRows] = await Promise.all([
+    const [accounts, categories, transactions, budgets, metaRows, people, collections] = await Promise.all([
       DB.getAll("accounts"),
       DB.getAll("categories"),
       DB.getAll("transactions"),
       DB.getAll("budgets"),
       DB.getAll("meta"),
+      DB.getAll("people"),
+      DB.getAll("collections"),
     ]);
     // Los adjuntos (blobs) se convierten a base64 para que quepan en JSON.
     const txSerializable = await Promise.all(
@@ -187,12 +198,14 @@ const DB = {
       transactions: txSerializable,
       budgets,
       meta: metaRows,
+      people,
+      collections,
     };
   },
 
   async importAll(data, { replace = true } = {}) {
     const db = await openDB();
-    const storeNames = ["accounts", "categories", "transactions", "budgets", "meta"];
+    const storeNames = ["accounts", "categories", "transactions", "budgets", "meta", "people", "collections"];
     const t = db.transaction(storeNames, "readwrite");
 
     if (replace) {
@@ -205,6 +218,8 @@ const DB = {
     for (const c of data.categories || []) put("categories", c);
     for (const b of data.budgets || []) put("budgets", b);
     for (const m of data.meta || []) put("meta", m);
+    for (const p of data.people || []) put("people", p);
+    for (const c of data.collections || []) put("collections", c);
     for (const tr of data.transactions || []) {
       if (tr.attachment && tr.attachment.__blob) {
         const blob = base64ToBlob(tr.attachment.base64, tr.attachment.mime);

@@ -16,7 +16,7 @@ async function renderBudgets(root, params) {
     if (t.type !== "expense") continue;
     if (DateUtil.monthKey(t.date) !== monthKey) continue;
     if (!t.categoryId) continue;
-    spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amountCents;
+    spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + myShareCents(t);
   }
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Presupuestos")]));

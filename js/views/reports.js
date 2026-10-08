@@ -15,7 +15,7 @@ async function renderReports(root, params) {
   const byCategory = {};
   for (const t of txMonth) {
     const key = t.categoryId || "none";
-    byCategory[key] = (byCategory[key] || 0) + t.amountCents;
+    byCategory[key] = (byCategory[key] || 0) + myShareCents(t);
   }
   const totalExpense = Object.values(byCategory).reduce((a, b) => a + b, 0);
   const rows = Object.entries(byCategory)
@@ -62,7 +62,7 @@ async function renderSavingsControl(allTx, accounts) {
 
   // Ahorro neto histórico = total de ingresos - total de gastos (todas las cuentas)
   const totalIncome = allTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
-  const totalExpense = allTx.filter((t) => t.type === "expense").reduce((s, t) => s + t.amountCents, 0);
+  const totalExpense = allTx.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
   const netSavings = totalIncome - totalExpense;
 
   const monthlyInterest = savingsAccounts.reduce((s, a) => {

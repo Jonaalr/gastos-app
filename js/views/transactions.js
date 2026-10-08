@@ -16,7 +16,7 @@ async function renderTransactions(root, params) {
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
 
   const income = txMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
-  const expense = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + t.amountCents, 0);
+  const expense = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Movimientos")]));
 

@@ -32,6 +32,11 @@ async function renderSettings(root) {
         el("div", { class: "main" }, [el("div", { class: "title" }, "Importar estado de cuenta"), el("div", { class: "meta" }, "Lee un PDF de tu banco")]),
         el("div", {}, "›"),
       ]),
+      el("div", { class: "list-item", onclick: () => Router.navigate("/receivables") }, [
+        el("div", { class: "icon" }, "🤝"),
+        el("div", { class: "main" }, [el("div", { class: "title" }, "Por cobrar"), el("div", { class: "meta" }, "Personas que te deben por gastos compartidos")]),
+        el("div", {}, "›"),
+      ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/categories") }, [
         el("div", { class: "icon" }, "🏷️"),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Categorías"), el("div", { class: "meta" }, "Predeterminadas y personalizadas")]),

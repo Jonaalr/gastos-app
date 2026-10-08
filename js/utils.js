@@ -85,6 +85,28 @@ const DateUtil = {
   },
 };
 
+/** Tu parte de un movimiento: en gastos entre varios es tu porción; si no, el total */
+function myShareCents(t) {
+  if (!t) return 0;
+  if (t.type !== "expense") return t.amountCents;
+  return t.split ? t.split.myShareCents : t.amountCents;
+}
+
+/** Reparte un total en n partes iguales; los centavos sobrantes van a las primeras */
+function splitEvenly(totalCents, n) {
+  const base = Math.floor(totalCents / n);
+  const rem = totalCents - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -119,5 +141,8 @@ function toast(message, type = "info") {
 window.Money = Money;
 window.DateUtil = DateUtil;
 window.uid = uid;
+window.myShareCents = myShareCents;
+window.splitEvenly = splitEvenly;
+window.escapeHtml = escapeHtml;
 window.el = el;
 window.toast = toast;

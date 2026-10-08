@@ -1,6 +1,10 @@
 /**
  * transaction-form.js — Sheet (modal) compartido para crear/editar una transacción.
  * Lo usan dashboard, transactions, calendar, etc.
+ *
+ * Pago entre varios: un gasto puede repartirse entre personas. Se guarda
+ *   split = { myShareCents, participants: [{ personId, shareCents }] }
+ * El saldo de la cuenta siempre baja por el total; tu gasto real es solo tu parte.
  */
 
 async function openTransactionSheet({ existing = null, prefill = null, onSaved = null } = {}) {
@@ -22,6 +26,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     isRecurring: false,
     recurringDay: null,
     source: prefill?.source || "manual",
+    split: null,
   };
 
   const backdrop = el("div", { class: "sheet-backdrop" });
@@ -65,6 +70,132 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       .join("");
   }
 
+  // ---------- Estado del reparto ----------
+  let people = (await DB.getAll("people")).sort((a, b) => a.name.localeCompare(b.name));
+  const split = {
+    enabled: !!data.split,
+    selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
+    mode: data.split ? "manual" : "equal",
+    manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
+  };
+
+  /** Calcula el reparto a partir del monto y la forma elegida. Devuelve error o el reparto. */
+  function computeSplit() {
+    const total = Money.toCents(sheet.querySelector("#f-amount").value);
+    const ids = [...split.selected];
+    if (ids.length === 0) return { error: "Elige al menos una persona para dividir el gasto" };
+
+    if (split.mode === "equal") {
+      // Partes iguales entre las personas y tú
+      const parts = splitEvenly(total, ids.length + 1);
+      return {
+        total,
+        myShareCents: parts[ids.length],
+        participants: ids.map((personId, i) => ({ personId, shareCents: parts[i] })),
+      };
+    }
+
+    const participants = ids.map((personId) => ({ personId, shareCents: split.manual.get(personId) ?? 0 }));
+    const others = participants.reduce((s, p) => s + p.shareCents, 0);
+    const myShareCents = total - others;
+    if (myShareCents < 0) return { error: "Lo que te deben suma más que el total del gasto" };
+    return { total, myShareCents, participants };
+  }
+
+  function updateSplitSummary() {
+    const box = sheet.querySelector("#split-summary");
+    if (!box) return;
+    const res = computeSplit();
+    if (res.error) {
+      box.innerHTML = `<span style="color:var(--warn);">${escapeHtml(res.error)}</span>`;
+      return;
+    }
+    box.innerHTML = `Tu parte <b>${Money.format(res.myShareCents)}</b> · Te deben <b>${Money.format(res.total - res.myShareCents)}</b>`;
+  }
+
+  function renderSplitBox() {
+    const box = sheet.querySelector("#split-box");
+    if (!box) return;
+    const res = computeSplit();
+    const shares = new Map(!res.error ? res.participants.map((p) => [p.personId, p.shareCents]) : []);
+    const nameOf = (id) => people.find((p) => p.id === id)?.name || "—";
+
+    const chips = people
+      .map((p) => `<button type="button" class="chip ${split.selected.has(p.id) ? "on" : ""}" data-person="${p.id}">${escapeHtml(p.name)}</button>`)
+      .join("");
+
+    const rows = [...split.selected]
+      .map((id) => {
+        const value = split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
+        return `<div class="split-row">
+          <span>${escapeHtml(nameOf(id))}</span>
+          <input type="number" inputmode="decimal" step="0.01" data-share="${id}" value="${value}" ${split.mode === "equal" ? "readonly" : ""}>
+        </div>`;
+      })
+      .join("");
+
+    box.innerHTML = `
+      <div class="split-chips">${chips || '<span class="field-hint">Aún no tienes personas. Agrega una abajo.</span>'}</div>
+      <div class="split-add">
+        <input type="text" id="f-newperson" placeholder="Nombre de una persona">
+        <button type="button" class="btn btn-secondary btn-sm" id="f-addperson" style="width:auto;">Agregar</button>
+      </div>
+      <div class="segmented split-mode" style="margin:10px 0;">
+        <button type="button" data-mode="equal" class="${split.mode === "equal" ? "active" : ""}">Partes iguales</button>
+        <button type="button" data-mode="manual" class="${split.mode === "manual" ? "active" : ""}">Montos</button>
+      </div>
+      ${rows ? `<div class="split-rows">${rows}</div>` : ""}
+      <div class="field-hint" id="split-summary" style="margin-top:10px;font-size:13px;"></div>
+    `;
+
+    box.querySelectorAll("[data-person]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = parseInt(btn.dataset.person, 10);
+        if (split.selected.has(id)) split.selected.delete(id);
+        else split.selected.add(id);
+        renderSplitBox();
+      });
+    });
+
+    box.querySelectorAll("[data-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.mode === "manual" && split.mode !== "manual") {
+          // Al pasar a montos, parto de lo que salía en partes iguales para que no cambie de golpe
+          const eq = computeSplit();
+          if (!eq.error) for (const p of eq.participants) split.manual.set(p.personId, p.shareCents);
+        }
+        split.mode = btn.dataset.mode;
+        renderSplitBox();
+      });
+    });
+
+    box.querySelectorAll("[data-share]").forEach((input) => {
+      input.addEventListener("input", () => {
+        split.manual.set(parseInt(input.dataset.share, 10), Money.toCents(input.value));
+        updateSplitSummary();
+      });
+    });
+
+    box.querySelector("#f-addperson").addEventListener("click", async () => {
+      const name = box.querySelector("#f-newperson").value.trim().replace(/\s+/g, " ");
+      if (!name) {
+        toast("Escribe el nombre de la persona", "error");
+        return;
+      }
+      const found = people.find((p) => p.name.toLowerCase() === name.toLowerCase());
+      if (found) {
+        split.selected.add(found.id);
+      } else {
+        const id = await DB.add("people", { name, createdAt: new Date().toISOString() });
+        people = [...people, { id, name }].sort((a, b) => a.name.localeCompare(b.name));
+        split.selected.add(id);
+      }
+      renderSplitBox();
+    });
+
+    updateSplitSummary();
+  }
+
   sheet.innerHTML = `
     <div class="sheet-header">
       <h2>${existing ? "Editar" : "Nueva"} transacción</h2>
@@ -100,6 +231,14 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     <div class="form-group" id="group-category" style="display:${data.type === "transfer" ? "none" : "block"}">
       <label>Categoría</label>
       <select id="f-category">${data.type === "income" ? catOptionsIncome : catOptionsExpense}</select>
+    </div>
+
+    <div class="form-group" id="group-split" style="display:${data.type === "expense" ? "block" : "none"}">
+      <label class="checkbox-row">
+        <input type="checkbox" id="f-split" ${split.enabled ? "checked" : ""}>
+        <span>Pago entre varios (se reparte con otras personas)</span>
+      </label>
+      <div id="split-box" style="display:${split.enabled ? "block" : "none"};margin-top:10px;"></div>
     </div>
 
     <div class="form-group">
@@ -140,12 +279,24 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       sheet.querySelector("#group-to-account").style.display = currentType === "transfer" ? "block" : "none";
       sheet.querySelector("#group-merchant").style.display = currentType === "transfer" ? "none" : "block";
       sheet.querySelector("#group-category").style.display = currentType === "transfer" ? "none" : "block";
+      sheet.querySelector("#group-split").style.display = currentType === "expense" ? "block" : "none";
       sheet.querySelector("#group-recurring").style.display = currentType === "expense" ? "block" : "none";
       sheet.querySelector("#label-account").textContent = currentType === "transfer" ? "Cuenta origen" : "Cuenta";
       const catSelect = sheet.querySelector("#f-category");
       catSelect.innerHTML = currentType === "income" ? catOptionsIncome : catOptionsExpense;
     });
   });
+
+  // Pago entre varios
+  sheet.querySelector("#f-split").addEventListener("change", (e) => {
+    split.enabled = e.target.checked;
+    sheet.querySelector("#split-box").style.display = split.enabled ? "block" : "none";
+    if (split.enabled) renderSplitBox();
+  });
+  sheet.querySelector("#f-amount").addEventListener("input", () => {
+    if (split.enabled) renderSplitBox();
+  });
+  if (split.enabled) renderSplitBox();
 
   // Auto-sugerencia de categoría al escribir el comercio
   const merchantInput = sheet.querySelector("#f-merchant");
@@ -182,6 +333,16 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     }
     const categoryId = currentType !== "transfer" ? (sheet.querySelector("#f-category").value || null) : null;
 
+    let splitRecord = null;
+    if (currentType === "expense" && split.enabled) {
+      const res = computeSplit();
+      if (res.error) {
+        toast(res.error, "error");
+        return;
+      }
+      splitRecord = { myShareCents: res.myShareCents, participants: res.participants };
+    }
+
     const record = {
       type: currentType,
       amountCents: amount,
@@ -193,6 +354,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       date: sheet.querySelector("#f-date").value || DateUtil.todayISO(),
       isRecurring: currentType === "expense" ? sheet.querySelector("#f-recurring").checked : false,
       recurringDay: null,
+      split: splitRecord,
       source: data.source || "manual",
       createdAt: existing?.createdAt || new Date().toISOString(),
     };
@@ -234,6 +396,7 @@ async function applyBalanceDelta(tx, sign) {
   if (!account) return;
 
   if (tx.type === "expense") {
+    // El saldo baja por el TOTAL, aunque tu gasto real sea solo tu parte
     account.balanceCents -= sign * tx.amountCents;
     await DB.put("accounts", account);
   } else if (tx.type === "income") {
