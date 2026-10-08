@@ -94,7 +94,14 @@ function renderAccountCard(a) {
   const dailyInterest = a.type === "savings" && a.annualRatePct ? computeDailyInterestCents(a) : 0;
   const info = isCredit ? creditInfo(a) : null;
 
-  return el("div", { class: `card account-card type-${a.type}` }, [
+  return el("div", {
+    class: `card account-card type-${a.type}`,
+    style: "cursor:pointer;",
+    onclick: (e) => {
+      if (e.target.closest("button")) return;
+      Router.navigate(`/account?id=${a.id}`);
+    },
+  }, [
     el("div", { class: "flex-between" }, [
       el("div", { class: "account-head" }, [
         el("div", { class: "icon-chip" }, accountIcon(a.type)),
@@ -137,6 +144,8 @@ function capitalizeSavings() {
 async function runCapitalizeSavings() {
   const today = DateUtil.todayISO();
   const accounts = await DB.getAll("accounts");
+  const categories = await DB.getAll("categories");
+  const interestCat = categories.find((c) => c.kind === "income" && c.name === "Rendimientos");
   for (const a of accounts) {
     if (a.type !== "savings" || !a.annualRatePct || a.archived) continue;
     const since = a.rateUpdatedAt || (a.createdAt ? DateUtil.toISO(new Date(a.createdAt)) : today);
@@ -144,9 +153,30 @@ async function runCapitalizeSavings() {
     if (!(days > 0)) continue;
 
     const dailyRate = a.annualRatePct / 100 / 365;
+    const start = DateUtil.parseISO(since);
     let balance = a.balanceCents;
     for (let i = 0; i < days; i++) {
-      balance += Math.round(balance * dailyRate);
+      const gain = Math.round(balance * dailyRate);
+      balance += gain;
+      // Cada día queda registrado como "Interés pagado" (no vuelve a cambiar el saldo)
+      const day = new Date(start);
+      day.setDate(day.getDate() + i + 1);
+      await DB.add("transactions", {
+        type: "income",
+        amountCents: gain,
+        accountId: a.id,
+        toAccountId: null,
+        categoryId: interestCat ? interestCat.id : null,
+        merchant: "Interés pagado",
+        note: "",
+        date: DateUtil.toISO(day),
+        isRecurring: false,
+        recurringDay: null,
+        attachment: null,
+        source: "interest",
+        balanceApplied: false,
+        createdAt: new Date().toISOString(),
+      });
     }
     a.balanceCents = balance;
     a.rateUpdatedAt = today;

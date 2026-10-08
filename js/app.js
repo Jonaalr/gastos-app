@@ -47,6 +47,7 @@ function registerRoutes() {
   Router.register("/settings", renderSettings);
   Router.register("/import", renderImportStatement);
   Router.register("/receivables", renderReceivables);
+  Router.register("/account", renderAccountDetail);
 }
 
 async function main() {

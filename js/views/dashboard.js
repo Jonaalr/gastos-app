@@ -101,7 +101,7 @@ async function renderDashboard(root) {
     for (const a of activeAccounts) {
       const isCredit = a.type === "credit" && a.creditLimitCents;
       carousel.appendChild(
-        el("div", { class: "account-pill", onclick: () => Router.navigate("/accounts") }, [
+        el("div", { class: "account-pill", onclick: () => Router.navigate(`/account?id=${a.id}`) }, [
           el("div", { class: "icon-chip" }, accountIcon(a.type)),
           el("div", { class: "pill-name" }, a.name),
           el("div", { class: "pill-amount" }, Money.format(isCredit ? creditInfo(a).available : a.balanceCents)),
