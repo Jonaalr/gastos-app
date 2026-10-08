@@ -155,7 +155,7 @@ async function runCapitalizeSavings() {
     const start = DateUtil.parseISO(since);
     let balance = a.balanceCents;
     for (let i = 0; i < days; i++) {
-      const { gross, tax, net } = dailyInterestBreakdown(balance, a.annualRatePct);
+      const { gross, tax, net } = dailyInterestBreakdown(balance, a.annualRatePct, savingsRules(a));
       balance += net;
       // Cada día queda registrado como "Interés pagado" (no vuelve a cambiar el saldo)
       const day = new Date(start);
@@ -186,23 +186,30 @@ async function runCapitalizeSavings() {
 }
 
 /**
- * Rendimiento diario como lo calcula Revolut México (verificado con sus movimientos):
- * - Interés bruto = saldo × tasa anual ÷ 360 (base de 360 días)
- * - ISR retenido = saldo × 0.90% anual ÷ 365
- * - Neto abonado = bruto − ISR (se suma al saldo cada día)
+ * Reglas de rendimiento de cada cuenta de ahorro (cada banco es distinto):
+ * - dayBasis: días de la base para el interés bruto (360 o 365)
+ * - isrPct: ISR retenido anual en % (0 si el banco no retiene)
+ * El ISR se calcula sobre base de 365 días.
+ * Valores por defecto para cuentas sin configurar: base 365 y sin ISR.
+ * Revolut México: base 360 y ISR 0.90 (ver config en el formulario de la cuenta).
  */
-const INTEREST_DAY_BASIS = 360;
-const ISR_ANNUAL_RATE = 0.009;
 const ISR_DAY_BASIS = 365;
+const DEFAULT_DAY_BASIS = 365;
 
-function dailyInterestBreakdown(balanceCents, annualRatePct) {
-  const gross = Math.round(balanceCents * (annualRatePct / 100) / INTEREST_DAY_BASIS);
-  const tax = Math.round(balanceCents * ISR_ANNUAL_RATE / ISR_DAY_BASIS);
+function savingsRules(account) {
+  const dayBasis = Number(account.interestDayBasis) === 360 ? 360 : DEFAULT_DAY_BASIS;
+  const isrPct = Number.isFinite(Number(account.isrPct)) && account.isrPct !== null ? Number(account.isrPct) : 0;
+  return { dayBasis, isrPct };
+}
+
+function dailyInterestBreakdown(balanceCents, annualRatePct, rules = { dayBasis: DEFAULT_DAY_BASIS, isrPct: 0 }) {
+  const gross = Math.round(balanceCents * (annualRatePct / 100) / rules.dayBasis);
+  const tax = Math.round(balanceCents * (rules.isrPct / 100) / ISR_DAY_BASIS);
   return { gross, tax, net: gross - tax };
 }
 
 function computeDailyInterestCents(account) {
-  return dailyInterestBreakdown(account.balanceCents, account.annualRatePct).net;
+  return dailyInterestBreakdown(account.balanceCents, account.annualRatePct, savingsRules(account)).net;
 }
 function computeMonthlyInterestCents(account) {
   const days = DateUtil.daysInMonth(new Date().getFullYear(), new Date().getMonth());
@@ -311,6 +318,18 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <label>Tasa anual (%)</label>
         <input type="number" inputmode="decimal" step="0.01" id="f-rate" value="${data.annualRatePct || ""}" placeholder="Ej. 11.5">
       </div>
+      <div class="form-group">
+        <label>Base de días del interés</label>
+        <select id="f-basis">
+          <option value="365" ${savingsRules(data).dayBasis === 365 ? "selected" : ""}>365 días</option>
+          <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días (Revolut)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ISR retenido anual (%)</label>
+        <input type="number" inputmode="decimal" step="0.01" id="f-isr" value="${savingsRules(data).isrPct || ""}" placeholder="0 si el banco no retiene">
+        <div class="field-hint">Revolut México retiene 0.90%. Pon 0 si tu banco no retiene.</div>
+      </div>
     </div>
 
     <div class="btn-row mt-8">
@@ -408,6 +427,8 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
       cutRefDate: type === "credit" ? cutRef : null,
       dueRefDate: type === "credit" ? dueRef : null,
       annualRatePct: type === "savings" ? parseFloat($("#f-rate").value || "0") || null : null,
+      interestDayBasis: type === "savings" ? (parseInt($("#f-basis").value, 10) === 360 ? 360 : 365) : null,
+      isrPct: type === "savings" ? Math.max(0, parseFloat($("#f-isr").value || "0") || 0) : null,
       rateUpdatedAt: type === "savings" ? DateUtil.todayISO() : null,
     };
     if (existing) record.id = existing.id;
