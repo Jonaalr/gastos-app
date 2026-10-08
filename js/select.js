@@ -93,8 +93,9 @@
       menu.style.top = "auto";
       menu.style.maxHeight = Math.max(120, spaceAbove) + "px";
     }
+    // Se desplaza solo el menú (scrollIntoView movía también la página en iPhone)
     const current = menu.querySelector(".on");
-    if (current) current.scrollIntoView({ block: "nearest" });
+    if (current) menu.scrollTop = Math.max(0, current.offsetTop - menu.clientHeight / 2 + current.offsetHeight / 2);
     backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeMenu(); });
   }
 
