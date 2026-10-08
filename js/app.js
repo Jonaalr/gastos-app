@@ -20,9 +20,7 @@ function buildShell() {
 
   const fab = el("button", { class: "fab", id: "fab-add" }, "+");
   document.body.appendChild(fab);
-  fab.addEventListener("click", () => {
-    openTransactionSheet({ onSaved: () => Router.render() });
-  });
+  fab.addEventListener("click", () => openAddMenu());
 
   const nav = el("div", { class: "bottom-nav" });
   for (const item of NAV_ITEMS) {

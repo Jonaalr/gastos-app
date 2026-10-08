@@ -802,6 +802,58 @@ body[data-route="/import"] .fab { display: none; }
 .nav-item.active { color: var(--accent); background: var(--accent-dim); }
 .nav-item.active .nav-icon { filter: none; }
 
+/* ---------- Menú del botón + (Escribir / Desde captura) ---------- */
+.add-menu-backdrop {
+  position: fixed; inset: 0;
+  z-index: 95;
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: backdropFade 0.2s ease-out;
+}
+.add-menu {
+  position: absolute;
+  left: 20px; right: 20px;
+  bottom: calc(164px + var(--safe-bottom));
+  background: var(--bg-card);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+.add-menu-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  border-radius: 0;
+}
+.add-menu-item + .add-menu-item { border-top: 0.5px solid var(--border); }
+.add-menu-item.primary { background: var(--accent-dim); }
+.add-menu-icon {
+  width: 34px; height: 34px; border-radius: 17px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 16px; font-weight: 700;
+  flex-shrink: 0;
+}
+.add-menu-item.primary .add-menu-icon { background: var(--accent); color: #fff; }
+.add-menu-title { font-size: 16px; font-weight: 600; }
+.add-menu-sub { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.add-menu-item.primary .add-menu-sub { color: var(--accent); }
+
+.capture-notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ---------- Iconos SVG ---------- */
 .ico { display: inline-flex; align-items: center; justify-content: center; color: var(--text); line-height: 0; }
 .ico svg { display: block; }

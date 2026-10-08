@@ -17,7 +17,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   const data = existing || {
     type: prefill?.type || "expense",
     amountCents: prefill?.amountCents || 0,
-    accountId: accounts[0].id,
+    accountId: prefill?.accountId || accounts[0].id,
     toAccountId: null,
     categoryId: null,
     merchant: prefill?.merchant || "",
@@ -206,6 +206,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       <h2>${existing ? "Editar" : "Nueva"} transacción</h2>
       <button class="sheet-close" data-close>✕</button>
     </div>
+    ${prefill?.notice && !existing ? `<div class="capture-notice">${escapeHtml(prefill.notice)}</div>` : ""}
 
     <div class="segmented" id="type-segmented">
       <button type="button" data-type="expense" class="${data.type === "expense" ? "active" : ""}">Gasto</button>
