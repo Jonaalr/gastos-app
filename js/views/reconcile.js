@@ -1,14 +1,18 @@
 /**
- * reconcile.js — Conciliación (SOLO LECTURA).
+ * reconcile.js — Conciliación de un estado de cuenta (PDF) de una tarjeta.
  *
- * Carga un estado de cuenta en PDF de una tarjeta, lo compara con los gastos
- * que ya registraste en ese periodo y muestra tres grupos:
+ * Compara los cargos del banco con los gastos que ya registraste en el periodo y muestra:
  *   - Cuadran: el cargo del banco ya lo tienes registrado.
- *   - Falta en tu registro: está en el banco y en tu app no.
- *   - Solo en tu registro: lo tienes tú, pero no aparece en el estado.
+ *   - Falta en tu registro: está en el banco y en tu app no -> botón "Agregar".
+ *   - Solo en tu registro: lo tienes tú y no aparece en el estado -> botón "Editar".
  *
- * Esta pantalla NO escribe nada: ni agrega movimientos, ni borra, ni toca el saldo.
- * El PDF se lee en el teléfono y no se sube a ningún lado.
+ * Seguridad con los datos:
+ *   - Los cargos que se agregan entran con balanceApplied: false, igual que la importación:
+ *     son historial y NO cambian el saldo actual de la tarjeta.
+ *   - Antes de agregar, se vuelve a revisar que no exista ya (no hay duplicados).
+ *   - Agregar varios se guarda en una sola operación: o se guardan todos, o ninguno.
+ *   - Nada se borra desde aquí. "Solo en tu registro" solo abre tu formulario para editar.
+ *   - El PDF se lee en el teléfono y no se sube a ningún lado.
  */
 
 const RECONCILE_WINDOW_DAYS = 3;
@@ -20,13 +24,16 @@ function shiftISO(iso, days) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Clave única de un cargo del estado (la misma que usa la importación). */
+function statementChargeKey(info, m, seen) {
+  const base = `${info.last4}|${m.date}|${m.amountCents}|${StatementImporters.merchantKey(m.rawDescription)}`;
+  seen[base] = (seen[base] || 0) + 1;
+  return `${base}#${seen[base]}`;
+}
+
 /**
  * Compara los cargos de un estado de cuenta con los gastos registrados de la cuenta.
  * Función pura: no lee ni escribe la base de datos.
- *
- * @param parsed     resultado de importer.parse(lines) -> { info, movements }
- * @param allTx      todas las transacciones
- * @param accountId  id de la tarjeta
  */
 function reconcileStatement(parsed, allTx, accountId) {
   const { info, movements } = parsed;
@@ -43,9 +50,7 @@ function reconcileStatement(parsed, allTx, accountId) {
   const poolFrom = shiftISO(start < dates[0] ? start : dates[0], -RECONCILE_WINDOW_DAYS);
   const poolTo = shiftISO(end > dates[dates.length - 1] ? end : dates[dates.length - 1], RECONCILE_WINDOW_DAYS);
 
-  // Gastos que ya se importaron de este estado: si aparecen, el cargo ya está
   const importedKeys = new Set(accountTx.filter((t) => t.importKey).map((t) => t.importKey));
-  // Gastos manuales que pueden corresponder a un cargo del banco
   const pool = accountTx.filter((t) => !t.importKey && t.date >= poolFrom && t.date <= poolTo);
 
   const used = new Set();
@@ -54,10 +59,7 @@ function reconcileStatement(parsed, allTx, accountId) {
   const missing = [];
 
   for (const m of charges) {
-    const base = `${info.last4}|${m.date}|${m.amountCents}|${StatementImporters.merchantKey(m.rawDescription)}`;
-    seen[base] = (seen[base] || 0) + 1;
-    const key = `${base}#${seen[base]}`;
-
+    const key = statementChargeKey(info, m, seen);
     if (importedKeys.has(key)) {
       matched.push({ m, tx: null, imported: true });
       continue;
@@ -69,7 +71,7 @@ function reconcileStatement(parsed, allTx, accountId) {
       used.add(hit.id);
       matched.push({ m, tx: hit, imported: false });
     } else {
-      missing.push({ m });
+      missing.push({ m, key });
     }
   }
 
@@ -80,17 +82,48 @@ function reconcileStatement(parsed, allTx, accountId) {
     .filter((t) => t.date >= start && t.date <= end)
     .reduce((s, t) => s + t.amountCents, 0);
 
-  return {
-    empty: false,
-    info,
-    periodFrom: start,
-    periodTo: end,
-    bankTotal,
-    myTotal,
-    matched,
-    missing,
-    extra,
-  };
+  return { empty: false, info, periodFrom: start, periodTo: end, bankTotal, myTotal, matched, missing, extra };
+}
+
+/**
+ * Agrega los cargos faltantes como historial (no tocan el saldo).
+ * Vuelve a revisar la base antes de guardar para no duplicar nada.
+ */
+async function addMissingCharges(parsed, items, accountId) {
+  const [allTx, categories, memory] = await Promise.all([
+    DB.getAll("transactions"),
+    DB.getAll("categories"),
+    DB.getMeta("merchantCategories", {}),
+  ]);
+  const existingKeys = new Set(allTx.filter((t) => t.importKey).map((t) => t.importKey));
+  const expenseCategories = categories.filter((c) => c.kind === "expense");
+  const { info } = parsed;
+  const batch = `${info.bank || "estado"}-${info.last4}-${info.cutDate || "s/f"}`;
+  const now = new Date().toISOString();
+
+  const records = items
+    .filter((it) => !existingKeys.has(it.key))
+    .map((it) => ({
+      type: "expense",
+      amountCents: it.m.amountCents,
+      accountId,
+      toAccountId: null,
+      categoryId: StatementImporters.suggestCategoryId(it.m.description, expenseCategories, memory),
+      merchant: it.m.description,
+      note: it.m.rawDescription.replace(/\s+/g, " "),
+      date: it.m.date,
+      isRecurring: false,
+      recurringDay: null,
+      attachment: null,
+      source: "import",
+      importKey: it.key,
+      importBatch: batch,
+      balanceApplied: false, // historial: el saldo actual no cambia
+      createdAt: now,
+    }));
+
+  if (records.length === 0) return 0;
+  return DB.addMany("transactions", records);
 }
 
 async function renderReconcile(root, params) {
@@ -111,11 +144,39 @@ async function renderReconcile(root, params) {
   }
 
   root.appendChild(
-    el("p", { class: "muted" }, `Compara el estado de cuenta de ${account.name} con lo que ya registraste. Esta pantalla solo compara: no agrega, no borra y no cambia el saldo.`)
+    el("p", { class: "muted" }, `Compara el estado de cuenta de ${account.name} con lo que ya registraste.`)
   );
 
   const status = el("p", { class: "muted" }, "");
   const results = el("div", {});
+  let lastParsed = null;
+
+  async function refresh() {
+    if (!lastParsed) return;
+    const allTx = await DB.getAll("transactions");
+    const result = reconcileStatement(lastParsed, allTx, accountId);
+    showResult(result);
+  }
+
+  const handlers = {
+    onAdd: async (items) => {
+      try {
+        const n = await addMissingCharges(lastParsed, items, accountId);
+        toast(n === 1 ? "Cargo agregado al historial" : `${n} cargos agregados al historial`, "success");
+      } catch (err) {
+        console.error(err);
+        toast("No pude agregarlos. No se guardó nada.", "error");
+      }
+      await refresh();
+    },
+    onEdit: (tx) => openTransactionSheet({ existing: tx, onSaved: refresh }),
+  };
+
+  function showResult(result) {
+    results.innerHTML = "";
+    renderReconcileResult(results, result, handlers);
+  }
+
   const input = el("input", { type: "file", accept: "application/pdf" });
   input.addEventListener("change", async () => {
     const file = input.files && input.files[0];
@@ -134,10 +195,9 @@ async function renderReconcile(root, params) {
         status.textContent = "Este estado de cuenta parece ser de otra tarjeta. Revisa cuál subiste.";
         return;
       }
-      const allTx = await DB.getAll("transactions");
-      const result = reconcileStatement(parsed, allTx, accountId);
+      lastParsed = parsed;
       status.textContent = "";
-      renderReconcileResult(results, result);
+      await refresh();
     } catch (err) {
       console.error(err);
       status.textContent = err && err.name === "PasswordException"
@@ -151,8 +211,8 @@ async function renderReconcile(root, params) {
   root.appendChild(results);
 }
 
-/** Dibuja el resultado de reconcileStatement dentro de un contenedor. Solo muestra datos. */
-function renderReconcileResult(container, result) {
+/** Dibuja el resultado. Los botones llaman a handlers.onAdd / handlers.onEdit. */
+function renderReconcileResult(container, result, handlers = {}) {
   container.innerHTML = "";
   if (result.empty) {
     container.appendChild(el("p", { class: "muted" }, "No encontré cargos en ese estado de cuenta."));
@@ -177,26 +237,34 @@ function renderReconcileResult(container, result) {
     ])
   );
 
-  const okCount = result.matched.length;
-  container.appendChild(reconcileGroup(`Cuadran · ${okCount}`, "ok", result.matched.map((r) => ({
+  container.appendChild(reconcileGroup(`Cuadran · ${result.matched.length}`, "ok", result.matched.map((r) => ({
     date: r.m.date,
     merchant: r.m.description,
     amount: r.m.amountCents,
     note: r.imported ? "Ya importado" : "Ya lo registraste",
   }))));
 
-  container.appendChild(reconcileGroup(`Falta en tu registro · ${result.missing.length}`, "warn", result.missing.map((r) => ({
+  const missingItems = result.missing;
+  const missingGroup = reconcileGroup(`Falta en tu registro · ${missingItems.length}`, "warn", missingItems.map((r) => ({
     date: r.m.date,
     merchant: r.m.description,
     amount: r.m.amountCents,
     note: "Está en el banco y no en tu app",
-  }))));
+    action: handlers.onAdd ? { label: "Agregar", run: () => handlers.onAdd([r]) } : null,
+  })));
+  if (handlers.onAdd && missingItems.length > 1) {
+    missingGroup.appendChild(
+      el("button", { class: "btn btn-sm mt-8", onclick: () => handlers.onAdd(missingItems) }, `Agregar los ${missingItems.length}`)
+    );
+  }
+  container.appendChild(missingGroup);
 
   container.appendChild(reconcileGroup(`Solo en tu registro · ${result.extra.length}`, "warn", result.extra.map((t) => ({
     date: t.date,
     merchant: t.merchant || "Sin comercio",
     amount: t.amountCents,
     note: "No aparece en el estado de cuenta",
+    action: handlers.onEdit ? { label: "Editar", run: () => handlers.onEdit(t) } : null,
   }))));
 }
 
@@ -207,13 +275,17 @@ function reconcileGroup(title, tone, rows) {
     return list;
   }
   for (const r of rows) {
+    const side = [el("div", { class: "amount" }, Money.format(r.amount))];
+    if (r.action) {
+      side.push(el("button", { class: "btn btn-secondary btn-sm", onclick: r.action.run }, r.action.label));
+    }
     list.appendChild(
       el("div", { class: "list-item" }, [
         el("div", { class: "grow" }, [
           el("div", {}, r.merchant),
           el("div", { class: "muted" }, `${DateUtil.formatShort(r.date)} · ${r.note}`),
         ]),
-        el("div", { class: "amount" }, Money.format(r.amount)),
+        el("div", { style: "display:flex;flex-direction:column;align-items:flex-end;gap:6px;" }, side),
       ])
     );
   }

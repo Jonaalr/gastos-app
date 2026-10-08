@@ -142,6 +142,18 @@ const DB = {
     const store = await tx(storeName, "readwrite");
     return promisifyRequest(store.put(obj));
   },
+  /** Agrega varios registros en UNA sola transacción: o se guardan todos, o ninguno */
+  async addMany(storeName, objs) {
+    const db = await openDB();
+    const t = db.transaction(storeName, "readwrite");
+    const store = t.objectStore(storeName);
+    for (const obj of objs) store.add(obj);
+    return new Promise((resolve, reject) => {
+      t.oncomplete = () => resolve(objs.length);
+      t.onerror = () => reject(t.error);
+      t.onabort = () => reject(t.error || new Error("abortado"));
+    });
+  },
   async get(storeName, id) {
     const store = await tx(storeName);
     return promisifyRequest(store.get(id));
