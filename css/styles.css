@@ -906,10 +906,14 @@ body[data-route="/import"] .fab { display: none; }
 .fsel-btn:disabled { opacity: 0.6; }
 .fsel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fsel-chev { color: var(--text-dim); display: flex; }
-.fsel-backdrop { position: fixed; inset: 0; z-index: 1000; }
+.fsel-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.25); }
 .fsel-menu {
   position: fixed;
-  max-height: 60vh;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(100vw - 32px), 340px);
+  max-height: 70vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: var(--bg-card);
