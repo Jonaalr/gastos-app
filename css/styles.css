@@ -864,17 +864,6 @@ body[data-route="/import"] .fab { display: none; }
 .calendar-card-name { min-width: 0; }
 .calendar-card-name .card-title { margin-bottom: 2px; }
 
-/* ---------- Dictado por voz ---------- */
-.voice-mic {
-  width: 96px; height: 96px; border-radius: 48px;
-  background: var(--accent); color: #fff; font-size: 40px;
-  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.35);
-}
-.voice-mic.on { animation: voicePulse 1.1s ease-in-out infinite; background: var(--danger); }
-.voice-mic:disabled { opacity: 0.4; }
-@keyframes voicePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-.voice-heard { text-align: center; font-size: 17px; font-weight: 600; min-height: 24px; margin: 4px 0; }
-
 /* ---------- Conciliación: filas con más aire ---------- */
 body[data-route="/reconcile"] .fab { display: none; }
 .rc-group { padding: 14px 16px 6px; }
