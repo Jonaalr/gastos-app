@@ -61,7 +61,8 @@ function reconcileStatement(parsed, allTx, accountId) {
   for (const m of charges) {
     const key = statementChargeKey(info, m, seen);
     if (importedKeys.has(key)) {
-      matched.push({ m, tx: null, imported: true });
+      const tx = accountTx.find((t) => t.importKey === key) || null;
+      matched.push({ m, tx, imported: true });
       continue;
     }
     const hit = pool.find(
@@ -237,12 +238,15 @@ function renderReconcileResult(container, result, handlers = {}) {
     ])
   );
 
-  container.appendChild(reconcileGroup(`Cuadran · ${result.matched.length}`, "ok", result.matched.map((r) => ({
-    date: r.m.date,
-    merchant: r.m.description,
-    amount: r.m.amountCents,
-    note: r.imported ? "Ya importado" : "Ya lo registraste",
-  }))));
+  container.appendChild(reconcileGroup(`Cuadran · ${result.matched.length}`, "ok", result.matched.map((r) => {
+    return {
+      date: r.m.date,
+      merchant: r.m.description,
+      amount: r.m.amountCents,
+      note: r.imported ? "Ya importado" : "Ya lo registraste",
+      action: handlers.onEdit && (r.tx) ? { label: "Editar", run: () => handlers.onEdit(r.tx) } : null,
+    };
+  })));
 
   const missingItems = result.missing;
   const missingGroup = reconcileGroup(`Falta en tu registro · ${missingItems.length}`, "warn", missingItems.map((r) => ({
