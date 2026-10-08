@@ -43,6 +43,47 @@
     if (openBackdrop) { openBackdrop.remove(); openBackdrop = null; }
   }
 
+  function pick(sel, o) {
+    sel.value = o.value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    closeMenu();
+  }
+
+  /** Mientras el dedo se desliza sobre el menú, la opción bajo el dedo se pinta de verde.
+   *  Al soltar se elige esa opción, salvo que el gesto fuera un desplazamiento de la lista. */
+  function trackFinger(sel, menu) {
+    let hovered = null;
+    let startScroll = 0;
+    const setHover = (item) => {
+      if (item === hovered) return;
+      if (hovered) hovered.classList.remove("hover");
+      hovered = item;
+      if (hovered) hovered.classList.add("hover");
+    };
+    const itemAt = (touch) => {
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const item = el && el.closest ? el.closest(".fsel-item") : null;
+      return item && menu.contains(item) ? item : null;
+    };
+    menu.addEventListener("touchstart", (e) => {
+      startScroll = menu.scrollTop;
+      setHover(itemAt(e.touches[0]));
+    }, { passive: true });
+    menu.addEventListener("touchmove", (e) => {
+      setHover(itemAt(e.touches[0]));
+    }, { passive: true });
+    menu.addEventListener("touchend", (e) => {
+      const scrolled = Math.abs(menu.scrollTop - startScroll) > 4;
+      const target = hovered;
+      setHover(null);
+      if (target && target._opt && !scrolled) {
+        e.preventDefault();
+        pick(sel, target._opt);
+      }
+    });
+    menu.addEventListener("touchcancel", () => setHover(null), { passive: true });
+  }
+
   function openMenu(sel) {
     closeMenu();
     const backdrop = document.createElement("div");
@@ -66,16 +107,14 @@
         check.textContent = "✓";
         item.appendChild(check);
       }
-      item.addEventListener("click", () => {
-        sel.value = o.value;
-        sel.dispatchEvent(new Event("change", { bubbles: true }));
-        closeMenu();
-      });
+      item._opt = o;
+      item.addEventListener("click", () => pick(sel, o));
       menu.appendChild(item);
     });
     backdrop.appendChild(menu);
     document.body.appendChild(backdrop);
     openBackdrop = backdrop;
+    trackFinger(sel, menu);
 
     // Menú centrado en la pantalla: nunca queda cortado arriba ni a los lados
     menu.style.width = "";

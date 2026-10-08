@@ -939,6 +939,8 @@ body[data-route="/import"] .fab { display: none; }
 }
 .fsel-item:last-child { border-bottom: 0; }
 .fsel-item.on { background: var(--accent-dim); }
+.fsel-item.hover { background: var(--accent); color: #ffffff; }
+.fsel-item.hover .fsel-check { color: #ffffff; }
 .fsel-check { color: var(--accent); font-weight: 700; }
 
 /* ---------- Sin desplazamiento horizontal (campos de fecha y hojas) ---------- */
