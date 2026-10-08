@@ -3,6 +3,7 @@
  */
 
 async function renderDashboard(root) {
+  await capitalizeSavings();
   const [accounts, transactions, userName] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("transactions"),

@@ -40,6 +40,7 @@ const ACCOUNT_FILTERS = [
 ];
 
 async function renderAccounts(root) {
+  await capitalizeSavings();
   const allAccounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
   const accounts = allAccounts.filter((a) => accountsFilter === "all" || a.type === accountsFilter);
 
@@ -120,6 +121,37 @@ function renderAccountCard(a) {
       ? el("button", { class: "btn btn-secondary btn-sm", style: "width:100%;margin-top:14px;", onclick: () => Router.navigate(`/import?account=${a.id}`) }, "Importar estado de cuenta (PDF)")
       : null,
   ]);
+}
+
+/**
+ * Capitaliza los rendimientos de las cuentas de ahorro: cada día se calcula el
+ * interés sobre el saldo del día anterior y se suma al saldo (interés compuesto).
+ * Cuenta desde la última fecha de referencia (rateUpdatedAt) o desde que se creó la cuenta.
+ * Se ejecuta en serie para que dos llamadas seguidas no dupliquen intereses.
+ */
+let savingsQueue = Promise.resolve();
+function capitalizeSavings() {
+  savingsQueue = savingsQueue.then(runCapitalizeSavings, runCapitalizeSavings);
+  return savingsQueue;
+}
+async function runCapitalizeSavings() {
+  const today = DateUtil.todayISO();
+  const accounts = await DB.getAll("accounts");
+  for (const a of accounts) {
+    if (a.type !== "savings" || !a.annualRatePct || a.archived) continue;
+    const since = a.rateUpdatedAt || (a.createdAt ? DateUtil.toISO(new Date(a.createdAt)) : today);
+    const days = DateUtil.daysBetween(since, today);
+    if (!(days > 0)) continue;
+
+    const dailyRate = a.annualRatePct / 100 / 365;
+    let balance = a.balanceCents;
+    for (let i = 0; i < days; i++) {
+      balance += Math.round(balance * dailyRate);
+    }
+    a.balanceCents = balance;
+    a.rateUpdatedAt = today;
+    await DB.put("accounts", a);
+  }
 }
 
 function computeDailyInterestCents(account) {
@@ -345,6 +377,7 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
 window.renderAccounts = renderAccounts;
 window.openAccountSheet = openAccountSheet;
 window.computeDailyInterestCents = computeDailyInterestCents;
+window.capitalizeSavings = capitalizeSavings;
 window.computeMonthlyInterestCents = computeMonthlyInterestCents;
 window.creditInfo = creditInfo;
 window.nextDayLabel = nextDayLabel;

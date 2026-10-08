@@ -53,6 +53,7 @@ async function main() {
   buildShell();
   registerRoutes();
   await seedIfNeeded();
+  await capitalizeSavings();
 
   if ("serviceWorker" in navigator) {
     // Si sale una versión nueva, recarga una sola vez para mostrarla sin que tengas que abrir la app dos veces
