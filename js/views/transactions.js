@@ -12,8 +12,32 @@ async function renderTransactions(root, params) {
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
   const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
 
-  const txMonth = allTx.filter((t) => DateUtil.monthKey(t.date) === monthKey);
+  // Filtros: texto (busca en todos los meses), categoría y cuenta
+  const q = (params.get("q") || "").trim();
+  const catF = params.get("cat") || "";
+  const accF = params.get("acc") || "";
+  const qLower = q.toLowerCase();
+  const txMonth = allTx
+    .filter((t) => (q ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => {
+      if (catF === "none") return !t.categoryId;
+      if (catF) return String(t.categoryId) === catF;
+      return true;
+    })
+    .filter((t) => (accF ? String(t.accountId) === accF : true))
+    .filter((t) => {
+      if (!qLower) return true;
+      const cat = catMap[t.categoryId];
+      const hay = `${t.merchant || ""} ${t.note || ""} ${cat ? cat.name : ""}`.toLowerCase();
+      return hay.includes(qLower);
+    });
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+  const goTo = (changes) => {
+    const next = new URLSearchParams();
+    const values = { month: monthKey, q, cat: catF, acc: accF, ...changes };
+    for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && q)) next.set(k, v);
+    Router.navigate(`/transactions?${next.toString()}`);
+  };
 
   const income = txMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
   const expense = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
@@ -21,7 +45,39 @@ async function renderTransactions(root, params) {
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Movimientos")]));
   root.appendChild(sectionTabs(DINERO_TABS, "/transactions"));
 
-  root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/transactions?month=${newMonth}`)));
+  root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => goTo({ month: newMonth })));
+
+  // Barra de búsqueda y filtros
+  const search = el("input", { type: "search", placeholder: "Buscar comercio, nota o categoría", value: q, style: "width:100%;margin-bottom:8px;" });
+  search.addEventListener("keydown", (e) => { if (e.key === "Enter") goTo({ q: search.value.trim() }); });
+  search.addEventListener("change", () => goTo({ q: search.value.trim() }));
+  const catSel = el("select", {}, [
+    el("option", { value: "" }, "Todas las categorías"),
+    el("option", { value: "none" }, "Sin categoría"),
+    ...categories.filter((c) => c.kind === "expense" || c.kind === "income").sort((a, b) => a.name.localeCompare(b.name, "es")).map((c) =>
+      el("option", { value: String(c.id), ...(String(c.id) === catF ? { selected: "selected" } : {}) }, c.name)
+    ),
+  ]);
+  catSel.value = catF;
+  catSel.addEventListener("change", () => goTo({ cat: catSel.value }));
+  const accSel = el("select", {}, [
+    el("option", { value: "" }, "Todas las cuentas"),
+    ...accounts.filter((a) => !a.archived).sort((a, b) => a.name.localeCompare(b.name, "es")).map((a) =>
+      el("option", { value: String(a.id) }, a.name)
+    ),
+  ]);
+  accSel.value = accF;
+  accSel.addEventListener("change", () => goTo({ acc: accSel.value }));
+  root.appendChild(
+    el("div", { class: "card", style: "padding:12px;" }, [
+      search,
+      el("div", { class: "btn-row" }, [
+        el("div", { style: "flex:1;min-width:0;" }, [catSel]),
+        el("div", { style: "flex:1;min-width:0;" }, [accSel]),
+      ]),
+      q ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Buscando "${q}" en todos los meses`) : null,
+    ])
+  );
 
   root.appendChild(
     el("div", { class: "stat-row mb-8" }, [

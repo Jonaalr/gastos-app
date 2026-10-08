@@ -30,6 +30,35 @@ async function renderReports(root, params) {
   root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/reports"));
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/reports?month=${newMonth}`)));
 
+  // ---- Comparación con el mes anterior ----
+  const [py, pm] = monthKey.split("-").map(Number);
+  const prevKey = pm === 1 ? `${py - 1}-12` : `${py}-${String(pm - 1).padStart(2, "0")}`;
+  const prevTotal = allTx
+    .filter((t) => DateUtil.monthKey(t.date) === prevKey && t.type === "expense")
+    .reduce((sum, t) => sum + myShareCents(t), 0);
+  const diff = totalExpense - prevTotal;
+  const prevLabel = new Date(py, (pm === 1 ? 12 : pm - 1) - 1, 1).toLocaleDateString("es-MX", { month: "long" });
+  const compareCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Comparado con " + prevLabel)]);
+  if (prevTotal === 0 && totalExpense === 0) {
+    compareCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en ninguno de los dos meses."));
+  } else if (prevTotal === 0) {
+    compareCard.appendChild(el("div", { class: "muted" }, `No hay gastos registrados en ${prevLabel}, así que no hay con qué comparar.`));
+  } else {
+    const pct = Math.round((Math.abs(diff) / prevTotal) * 100);
+    const up = diff > 0;
+    compareCard.appendChild(
+      el("div", { class: "btn-row" }, [
+        el("div", {}, [el("div", { class: "muted" }, prevLabel), el("div", { class: "amount" }, Money.format(prevTotal))]),
+        el("div", {}, [el("div", { class: "muted" }, "Este mes"), el("div", { class: "amount" }, Money.format(totalExpense))]),
+      ])
+    );
+    compareCard.appendChild(
+      el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : up ? "warn" : "ok"}` },
+        diff === 0 ? "Igual que el mes anterior" : `${up ? "▲ Gastaste" : "▼ Gastaste"} ${Money.format(Math.abs(diff))} ${up ? "más" : "menos"} (${pct}%)`)
+    );
+  }
+  root.appendChild(compareCard);
+
   // ---- Gasto por categoría ----
   const catCard = el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Gasto por categoría"),

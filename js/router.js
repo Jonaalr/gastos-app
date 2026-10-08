@@ -28,13 +28,18 @@ const Router = {
     Router.updateNav(path);
 
     const root = document.getElementById("view-root");
-    root.innerHTML = "";
+    // Cada render se arma aparte y solo se muestra si es el último pedido (evita duplicados al cambiar filtros rápido)
+    const seq = (Router._seq = (Router._seq || 0) + 1);
+    const staging = document.createElement("div");
     try {
-      await renderFn(root, params);
+      await renderFn(staging, params);
     } catch (err) {
       console.error(err);
-      root.appendChild(el("div", { class: "card" }, `Error al cargar la vista: ${err.message}`));
+      staging.appendChild(el("div", { class: "card" }, `Error al cargar la vista: ${err.message}`));
     }
+    if (seq !== Router._seq) return;
+    root.innerHTML = "";
+    while (staging.firstChild) root.appendChild(staging.firstChild);
 
     // Ojito para ocultar cifras en la barra superior (excepto barras en columna, p. ej. detalle de persona)
     const topbar = root.querySelector(".topbar");

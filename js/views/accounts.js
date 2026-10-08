@@ -81,6 +81,7 @@ async function renderAccounts(root) {
   }
 
   root.appendChild(el("button", { class: "btn mt-8", onclick: () => openAccountSheet({ onSaved: () => Router.render() }) }, "+ Agregar cuenta"));
+  await renderGoalsCard(root);
 
   root.querySelectorAll("[data-edit-account]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
