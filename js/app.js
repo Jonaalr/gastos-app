@@ -53,6 +53,12 @@ async function main() {
   await seedIfNeeded();
 
   if ("serviceWorker" in navigator) {
+    // Si sale una versión nueva, recarga una sola vez para mostrarla sin que tengas que abrir la app dos veces
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+    });
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
 

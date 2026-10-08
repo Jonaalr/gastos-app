@@ -4,7 +4,7 @@
  * Los DATOS viven en IndexedDB, no aquí — este archivo solo cachea código.
  */
 
-const CACHE_NAME = "gastos-app-v2";
+const CACHE_NAME = "gastos-app-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -30,8 +30,11 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
+  // cache:"reload" salta la caché HTTP de GitHub Pages para bajar siempre la versión más nueva
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(ASSETS.map((url) => cache.add(new Request(url, { cache: "reload" })).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
@@ -45,20 +48,18 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Red primero (siempre la versión más nueva); si no hay internet, usa lo guardado.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request, { cache: "no-cache" })
+      .then((response) => {
+        if (response && response.ok && new URL(event.request.url).origin === self.location.origin) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
   );
 });
