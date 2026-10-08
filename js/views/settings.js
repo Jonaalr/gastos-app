@@ -27,6 +27,11 @@ async function renderSettings(root) {
         el("div", { class: "main" }, [el("div", { class: "title" }, "Cuentas"), el("div", { class: "meta" }, "Agregar, editar, archivar")]),
         el("div", {}, "›"),
       ]),
+      el("div", { class: "list-item", onclick: () => Router.navigate("/import") }, [
+        el("div", { class: "icon" }, "📄"),
+        el("div", { class: "main" }, [el("div", { class: "title" }, "Importar estado de cuenta"), el("div", { class: "meta" }, "Lee un PDF de tu banco")]),
+        el("div", {}, "›"),
+      ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/categories") }, [
         el("div", { class: "icon" }, "🏷️"),
         el("div", { class: "main" }, [el("div", { class: "title" }, "Categorías"), el("div", { class: "meta" }, "Predeterminadas y personalizadas")]),

@@ -45,6 +45,7 @@ function registerRoutes() {
   Router.register("/calendar", renderCalendar);
   Router.register("/reports", renderReports);
   Router.register("/settings", renderSettings);
+  Router.register("/import", renderImportStatement);
 }
 
 async function main() {

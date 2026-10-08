@@ -93,6 +93,9 @@ function renderAccountCard(a) {
     a.type === "savings" && a.annualRatePct
       ? el("div", { class: "text-dim", style: "font-size:12px;margin-top:8px;" }, `Generando ~${Money.format(dailyInterest)}/día`)
       : null,
+    isCredit
+      ? el("button", { class: "btn btn-secondary btn-sm", style: "width:100%;margin-top:14px;", onclick: () => Router.navigate(`/import?account=${a.id}`) }, "Importar estado de cuenta (PDF)")
+      : null,
   ]);
 }
 

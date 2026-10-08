@@ -56,7 +56,8 @@ async function renderTransactions(root, params) {
 
 function renderMonthSwitcher(monthKey, onChange) {
   const [y, m] = monthKey.split("-").map(Number);
-  const label = new Date(y, m - 1, 1).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const rawLabel = new Date(y, m - 1, 1).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  const label = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1); // "mayo de 2026" -> "Mayo de 2026"
   const prev = new Date(y, m - 2, 1);
   const next = new Date(y, m, 1);
   const prevKey = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
@@ -64,7 +65,7 @@ function renderMonthSwitcher(monthKey, onChange) {
 
   return el("div", { class: "flex-between card", style: "padding:10px 12px;" }, [
     el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", onclick: () => onChange(prevKey) }, "‹"),
-    el("div", { style: "font-weight:700; text-transform:capitalize;" }, label),
+    el("div", { style: "font-weight:700;" }, label),
     el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", onclick: () => onChange(nextKey) }, "›"),
   ]);
 }

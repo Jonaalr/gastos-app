@@ -161,7 +161,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   if (existing) {
     sheet.querySelector("#f-delete").addEventListener("click", async () => {
       if (!confirm("¿Eliminar esta transacción?")) return;
-      await DB.delete("transactions", existing.id);
+      await deleteTransactionWithBalances(existing); // devuelve el monto al saldo de la cuenta
       toast("Transacción eliminada", "success");
       close();
       if (onSaved) onSaved();
@@ -196,6 +196,12 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       source: data.source || "manual",
       createdAt: existing?.createdAt || new Date().toISOString(),
     };
+    // Movimientos importados de un estado de cuenta: conservar su identidad y que no tocan el saldo
+    if (existing && existing.balanceApplied === false) {
+      record.balanceApplied = false;
+      record.importKey = existing.importKey;
+      record.importBatch = existing.importBatch;
+    }
     if (record.isRecurring) {
       record.recurringDay = new Date(record.date + "T00:00:00").getDate();
     }
@@ -222,6 +228,8 @@ async function saveTransactionWithBalances(record, previous) {
 }
 
 async function applyBalanceDelta(tx, sign) {
+  // Los movimientos importados de estados de cuenta son historial: el saldo ya los incluye
+  if (tx.balanceApplied === false) return;
   const account = await DB.get("accounts", tx.accountId);
   if (!account) return;
 

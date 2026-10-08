@@ -24,6 +24,7 @@ const Router = {
     const params = new URLSearchParams(queryString || "");
     const renderFn = Router.routes[path] || Router.routes["/dashboard"];
     Router.current = path;
+    document.body.dataset.route = path;
     Router.updateNav(path);
 
     const root = document.getElementById("view-root");

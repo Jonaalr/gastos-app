@@ -11,6 +11,7 @@ App de control de gastos personales para iPhone. PWA (Progressive Web App) sin b
 - Presupuestos por categoría con alertas al 80% y 100%
 - Calendario de pagos (tarjetas de crédito + domiciliados recurrentes)
 - Reportes: gasto por categoría del mes + control total de ahorro
+- Importar movimientos desde el estado de cuenta en PDF (Banamex tarjeta de crédito por ahora): se lee en el teléfono, se revisa antes de guardar y no altera el saldo
 - Respaldo manual (exportar/importar JSON)
 - Instalable en pantalla de inicio de iPhone
 
