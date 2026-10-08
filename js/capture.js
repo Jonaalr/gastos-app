@@ -21,23 +21,23 @@ function openAddMenu() {
   const writeBtn = el("button", { class: "add-menu-item", type: "button" }, [
     el("div", { class: "add-menu-icon" }, "✎"),
     el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Escribir gasto"),
-      el("div", { class: "add-menu-sub" }, "Como hasta ahora"),
+      el("div", { class: "add-menu-title" }, "Manual"),
+      el("div", { class: "add-menu-sub" }, "Escribes el monto, comercio y categoría"),
     ]),
   ]);
   const captureBtn = el("button", { class: "add-menu-item", type: "button" }, [
     el("div", { class: "add-menu-icon" }, "▣"),
     el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Desde captura"),
-      el("div", { class: "add-menu-sub" }, "Elige una notificación y yo lleno los datos"),
+      el("div", { class: "add-menu-title" }, "Desde notificación"),
+      el("div", { class: "add-menu-sub" }, "Elige la captura de Revolut, Banamex o Mercado Pago"),
     ]),
   ]);
 
   const voiceBtn = el("button", { class: "add-menu-item", type: "button" }, [
     el("div", { class: "add-menu-icon" }, "◉"),
     el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Por voz"),
-      el("div", { class: "add-menu-sub" }, "Dicta con el micrófono del teclado"),
+      el("div", { class: "add-menu-title" }, "Dictar"),
+      el("div", { class: "add-menu-sub" }, "Di el gasto con el micrófono del teclado"),
     ]),
   ]);
 
