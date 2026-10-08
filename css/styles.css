@@ -876,6 +876,9 @@ body[data-route="/import"] .fab { display: none; }
 .goal-actions { display: flex; gap: 8px; }
 .goal-actions .btn { padding: 6px 12px; font-size: 13px; }
 
+/* Botones de la hoja siempre a la vista (se pueden tocar con una mano) */
+.sheet-actions { position: sticky; bottom: 0; background: var(--bg-card); padding: 10px 0 4px; margin-top: 12px; z-index: 2; }
+
 /* ---------- Pestañas de sección (Dinero, Presupuestos) ---------- */
 .section-tabs { margin: 0 0 14px; }
 

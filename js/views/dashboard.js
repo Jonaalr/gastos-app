@@ -23,6 +23,17 @@ async function renderDashboard(root) {
   const incomeThisMonth = txThisMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
   const expenseThisMonth = txThisMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
+  // Pagos del mes que aún no se registran (domiciliados sin confirmar, no cancelados ni omitidos)
+  const recStatus = await DB.getMeta("recurringStatus", {});
+  const pendingRecurring = buildRecurringSeries(transactions)
+    .filter((sr) => {
+      const st = recStatus[sr.key] || {};
+      if (st.cancelled || (st.skipped && st.skipped.includes(thisMonth))) return false;
+      return !sr.txs.some((t) => DateUtil.monthKey(t.date) === thisMonth);
+    })
+    .reduce((sum, sr) => sum + sr.last.amountCents, 0);
+  const availableToSpend = afterDebt - pendingRecurring;
+
   const recent = [...transactions].sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)).slice(0, 8);
   const categories = await DB.getAll("categories");
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
@@ -48,7 +59,8 @@ async function renderDashboard(root) {
       el("div", { class: "hero-value" }, Money.format(moneyTotal)),
       el("div", { class: "hero-rows" }, [
         el("div", { class: "hero-row" }, [el("span", {}, "Tarjetas"), el("strong", { class: "neg" }, `−${Money.format(creditDebt)}`)]),
-        el("div", { class: "hero-row" }, [el("span", {}, "Libre tras tarjetas"), el("strong", {}, Money.format(afterDebt))]),
+        pendingRecurring > 0 ? el("div", { class: "hero-row" }, [el("span", {}, "Pagos del mes por registrar"), el("strong", { class: "neg" }, `−${Money.format(pendingRecurring)}`)]) : null,
+        el("div", { class: "hero-row" }, [el("span", {}, "Disponible para gastar"), el("strong", {}, Money.format(availableToSpend))]),
       ]),
     ])
   );

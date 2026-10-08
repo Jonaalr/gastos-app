@@ -16,9 +16,13 @@ async function renderTransactions(root, params) {
   const q = (params.get("q") || "").trim();
   const catF = params.get("cat") || "";
   const accF = params.get("acc") || "";
+  const fromF = params.get("from") || "";
+  const toF = params.get("to") || "";
+  const ranged = !!(fromF || toF);
   const qLower = q.toLowerCase();
   const txMonth = allTx
-    .filter((t) => (q ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => (q || ranged ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => (fromF ? t.date >= fromF : true) && (toF ? t.date <= toF : true))
     .filter((t) => {
       if (catF === "none") return !t.categoryId;
       if (catF) return String(t.categoryId) === catF;
@@ -34,8 +38,9 @@ async function renderTransactions(root, params) {
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   const goTo = (changes) => {
     const next = new URLSearchParams();
-    const values = { month: monthKey, q, cat: catF, acc: accF, ...changes };
-    for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && q)) next.set(k, v);
+    const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, ...changes };
+    const dropMonth = !!(values.q || values.from || values.to);
+    for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
     Router.navigate(`/transactions?${next.toString()}`);
   };
 
@@ -75,7 +80,18 @@ async function renderTransactions(root, params) {
         el("div", { style: "flex:1;min-width:0;" }, [catSel]),
         el("div", { style: "flex:1;min-width:0;" }, [accSel]),
       ]),
+      el("div", { class: "btn-row", style: "margin-top:8px;" }, [
+        el("div", { style: "flex:1;min-width:0;" }, [
+          el("label", { class: "muted", style: "font-size:12px;" }, "Desde"),
+          el("input", { type: "date", value: fromF, style: "width:100%;", onchange: (e) => goTo({ from: e.target.value }) }),
+        ]),
+        el("div", { style: "flex:1;min-width:0;" }, [
+          el("label", { class: "muted", style: "font-size:12px;" }, "Hasta"),
+          el("input", { type: "date", value: toF, style: "width:100%;", onchange: (e) => goTo({ to: e.target.value }) }),
+        ]),
+      ]),
       q ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Buscando "${q}" en todos los meses`) : null,
+      ranged ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, "Mostrando el rango de fechas elegido") : null,
     ])
   );
 

@@ -264,7 +264,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       </label>
     </div>
 
-    <div class="btn-row mt-8">
+    <div class="btn-row mt-8 sheet-actions">
       ${existing ? '<button class="btn btn-danger btn-sm" id="f-delete" style="flex:0 0 auto;">Eliminar</button>' : ""}
       <button class="btn" id="f-save">Guardar</button>
     </div>
