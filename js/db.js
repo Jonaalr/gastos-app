@@ -203,6 +203,17 @@ const DB = {
     };
   },
 
+  /** Borra TODOS los datos (incluye meta, para que las categorías predeterminadas se vuelvan a crear) */
+  async clearAll() {
+    const db = await openDB();
+    const storeNames = ["accounts", "categories", "transactions", "budgets", "meta", "people", "collections"];
+    const t = db.transaction(storeNames, "readwrite");
+    for (const name of storeNames) t.objectStore(name).clear();
+    return new Promise((resolve, reject) => {
+      t.oncomplete = () => resolve(true);
+      t.onerror = () => reject(t.error);
+    });
+  },
   async importAll(data, { replace = true } = {}) {
     const db = await openDB();
     const storeNames = ["accounts", "categories", "transactions", "budgets", "meta", "people", "collections"];

@@ -57,6 +57,15 @@ async function renderSettings(root) {
     ])
   );
 
+  root.appendChild(
+    el("div", { class: "card" }, [
+      el("div", { class: "card-title" }, "Borrar todos los datos"),
+      el("div", { class: "text-dim", style: "font-size:13px;margin-bottom:12px;" }, "Elimina cuentas, movimientos, personas, cobros y presupuestos de este iPhone. No se puede deshacer."),
+      el("button", { class: "btn btn-danger", id: "btn-wipe" }, "Borrar todos los datos"),
+    ])
+  );
+  root.querySelector("#btn-wipe").addEventListener("click", wipeAllData);
+
   root.querySelector("#btn-export").addEventListener("click", exportBackup);
   root.querySelector("#btn-import").addEventListener("click", () => root.querySelector("#file-import").click());
   root.querySelector("#file-import").addEventListener("change", importBackup);
@@ -64,6 +73,25 @@ async function renderSettings(root) {
   root.appendChild(
     el("div", { class: "text-center text-dim", style: "font-size:11px;margin-top:20px;" }, "Mis Gastos · datos 100% locales · sin cuentas, sin anuncios")
   );
+}
+
+async function wipeAllData() {
+  if (!confirm("¿Borrar TODOS los datos de esta app? Esta acción no se puede deshacer.")) return;
+  const word = prompt('Para confirmar, escribe BORRAR (en mayúsculas):');
+  if (word !== "BORRAR") {
+    toast("Borrado cancelado", "info");
+    return;
+  }
+  try {
+    await DB.clearAll();
+    await seedIfNeeded();
+    toast("Datos borrados. La app está lista para empezar de nuevo.", "success");
+    Router.navigate("/dashboard");
+    Router.render();
+  } catch (err) {
+    console.error(err);
+    toast("No se pudieron borrar los datos", "error");
+  }
 }
 
 async function exportBackup() {
