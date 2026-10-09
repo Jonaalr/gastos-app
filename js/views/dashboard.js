@@ -52,35 +52,56 @@ async function renderDashboard(root) {
   const backupReminder = await backupReminderCard();
   if (backupReminder) root.appendChild(backupReminder);
 
-  // ---- Saldo total (tarjeta blanca). Se puede ocultar solo este monto y el disponible con el ojito ----
+  // ---- Saldo total (tarjeta blanca). "Por pagar" se despliega para ver de dónde viene ----
+  const debtsList = await DB.getMeta("debts", []);
+  const plansList = await loadInstallments();
+  const debtsLeft = debtsList.reduce((sum, d) => sum + debtRemainingCents(d), 0) + plansList.reduce((sum, p) => sum + installmentRemainingCents(p), 0);
+  const porPagar = creditDebt + pendingRecurring + debtsLeft;
+  const disponible = moneyTotal - porPagar;
   let heroHidden = false;
-  try { heroHidden = localStorage.getItem("ocultarSaldoInicio") === "1"; } catch (e) { heroHidden = false; }
-  const HIDDEN = "$••••••";
-  const heroValue = el("div", { class: "hero-value" }, heroHidden ? HIDDEN : Money.format(moneyTotal));
-  const availValue = el("strong", {}, heroHidden ? HIDDEN : Money.format(availableToSpend));
+  let porPagarOpen = false;
+  try {
+    heroHidden = localStorage.getItem("ocultarSaldoInicio") === "1";
+    porPagarOpen = localStorage.getItem("porPagarAbierto") === "1";
+  } catch (e) { /* sin almacenamiento: valores por defecto */ }
+  const money = (cents) => (heroHidden ? "$••••••" : Money.format(cents));
+  const subRow = (label, cents) =>
+    el("div", { class: "hero-sub" }, [el("span", {}, label), el("span", { class: "neg" }, `−${money(cents)}`)]);
+  const detail = el("div", { class: "hero-detail", style: porPagarOpen ? "" : "display:none;" }, [
+    subRow("Tarjetas de crédito", creditDebt),
+    subRow("Pagos por registrar", pendingRecurring),
+    subRow("Deudas y compras a meses", debtsLeft),
+  ]);
+  const chevron = el("span", { class: `hero-chev${porPagarOpen ? " open" : ""}` }, "▾");
+  const toggleRow = el("div", {
+    class: "hero-row hero-toggle",
+    role: "button",
+    tabindex: "0",
+    onclick: () => {
+      porPagarOpen = !porPagarOpen;
+      try { localStorage.setItem("porPagarAbierto", porPagarOpen ? "1" : "0"); } catch (e) { /* solo esta sesión */ }
+      detail.style.display = porPagarOpen ? "" : "none";
+      chevron.classList.toggle("open", porPagarOpen);
+    },
+  }, [el("span", {}, [el("span", {}, "Por pagar "), chevron]), el("strong", { class: "neg" }, `−${money(porPagar)}`)]);
   const eyeBtn = el("button", {
     class: "hero-eye",
     type: "button",
     title: heroHidden ? "Mostrar saldo" : "Ocultar saldo",
     "aria-label": heroHidden ? "Mostrar saldo" : "Ocultar saldo",
     onclick: () => {
-      heroHidden = !heroHidden;
-      try { localStorage.setItem("ocultarSaldoInicio", heroHidden ? "1" : "0"); } catch (e) { /* solo esta sesión */ }
-      heroValue.textContent = heroHidden ? HIDDEN : Money.format(moneyTotal);
-      availValue.textContent = heroHidden ? HIDDEN : Money.format(availableToSpend);
-      eyeBtn.title = eyeBtn.getAttribute("aria-label") === "Ocultar saldo" ? "Mostrar saldo" : "Ocultar saldo";
-      eyeBtn.setAttribute("aria-label", eyeBtn.title);
-      eyeBtn.replaceChildren(iconNode(heroHidden ? "eyeOff" : "eye", "ico", 18));
+      try { localStorage.setItem("ocultarSaldoInicio", heroHidden ? "0" : "1"); } catch (e) { /* solo esta sesión */ }
+      Router.render();
     },
   }, [iconNode(heroHidden ? "eyeOff" : "eye", "ico", 18)]);
   root.appendChild(
     el("div", { class: "hero-card" }, [
       el("div", { class: "hero-head" }, [el("div", { class: "hero-label" }, "Dinero total"), eyeBtn]),
-      heroValue,
+      el("div", { class: "hero-value" }, money(moneyTotal)),
       el("div", { class: "hero-rows" }, [
-        el("div", { class: "hero-row" }, [el("span", {}, "Tarjetas de crédito"), el("strong", { class: "neg" }, `−${Money.format(creditDebt)}`)]),
-        pendingRecurring > 0 ? el("div", { class: "hero-row" }, [el("span", {}, "Pagos por registrar"), el("strong", { class: "neg" }, `−${Money.format(pendingRecurring)}`)]) : null,
-        el("div", { class: "hero-row" }, [el("span", {}, "Disponible"), availValue]),
+        toggleRow,
+        detail,
+        el("div", { class: "hero-row" }, [el("span", {}, "Disponible"), el("strong", {}, money(disponible))]),
       ]),
     ])
   );

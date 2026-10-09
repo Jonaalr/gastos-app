@@ -1141,3 +1141,11 @@ input[type="date"] { position: relative; }
 .hero-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hero-eye { all: unset; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: var(--fill); }
 .hero-eye:active { transform: scale(0.9); }
+
+/* "Por pagar" desplegable en la tarjeta de saldo */
+.hero-toggle { cursor: pointer; }
+.hero-chev { display: inline-block; margin-left: 4px; font-size: 12px; transition: transform 0.25s ease; }
+.hero-chev.open { transform: rotate(180deg); }
+.hero-detail { padding: 2px 0 6px 12px; border-left: 2px solid var(--border); margin: 2px 0 4px 2px; }
+.hero-sub { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; color: var(--text-dim); }
+.hero-sub .neg { color: var(--expense); font-weight: 600; }
