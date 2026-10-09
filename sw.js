@@ -4,7 +4,7 @@
  * Los DATOS viven en IndexedDB, no aquí — este archivo solo cachea código.
  */
 
-const CACHE_NAME = "gastos-app-v55";
+const CACHE_NAME = "gastos-app-v56";
 const ASSETS = [
   "./",
   "./index.html",
@@ -73,18 +73,29 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Red primero (siempre la versión más nueva); si no hay internet, usa lo guardado.
+// Red primero, pero si tarda más de 2.5 s abre lo guardado (y la red actualiza la caché en segundo plano).
+// Así la app no se queda en pantalla negra con internet lento.
+const NETWORK_WAIT_MS = 2500;
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(
-    fetch(event.request, { cache: "no-cache" })
-      .then((response) => {
-        if (response && response.ok && new URL(event.request.url).origin === self.location.origin) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
-  );
+  event.respondWith((async () => {
+    const networkP = fetch(event.request, { cache: "no-cache" }).then((response) => {
+      if (response && response.ok && new URL(event.request.url).origin === self.location.origin) {
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+      }
+      return response;
+    });
+    const quick = await Promise.race([
+      networkP.then((r) => ({ r }), () => ({ failed: true })),
+      new Promise((resolve) => setTimeout(() => resolve({ slow: true }), NETWORK_WAIT_MS)),
+    ]);
+    if (quick.r) return quick.r;
+    const cached = await caches.match(event.request);
+    if (cached) return cached;
+    try {
+      return await networkP;
+    } catch (err) {
+      return (await caches.match("./index.html")) || Response.error();
+    }
+  })());
 });
