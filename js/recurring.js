@@ -136,7 +136,7 @@ async function openRecurringConfirm(s) {
       isRecurring: true,
       recurringDay: s.last.recurringDay,
       attachment: null,
-      split: null,
+      split: carrySplit(s.last, amountCents),
       source: "recurring",
       createdAt: new Date().toISOString(),
     };
@@ -164,4 +164,19 @@ async function openRecurringConfirm(s) {
     close();
     Router.render();
   });
+}
+
+/**
+ * Repite el reparto del último cobro domiciliado (mismas personas), ajustado al monto de este mes.
+ * Las personas quedan SIN marcar como "ya pagó": cada mes marcas quién ya te pagó.
+ */
+function carrySplit(last, amountCents) {
+  const parts = last && last.split && last.split.participants;
+  if (!parts || parts.length === 0) return null;
+  const lastTotal = (last.split.myShareCents || 0) + parts.reduce((s, p) => s + p.shareCents, 0);
+  const ratio = lastTotal > 0 ? amountCents / lastTotal : 1;
+  const participants = parts.map((p) => ({ personId: p.personId, shareCents: Math.round(p.shareCents * ratio), paid: false }));
+  const myShareCents = amountCents - participants.reduce((s, p) => s + p.shareCents, 0);
+  if (myShareCents < 0) return null;
+  return { myShareCents, participants };
 }
