@@ -1,5 +1,5 @@
 /**
- * receivables.js — Dinero > Préstamos (filtros Todos / Préstamos / Compartidos). Personas con quienes compartes gastos, sus cargos y sus cobros.
+ * receivables.js — Dinero > Por cobrar (filtros Todos / Préstamos / Gastos compartidos). Personas con quienes compartes gastos, sus cargos y sus cobros.
  *
  * Saldo de una persona = suma de su parte en los gastos entre varios − cobros registrados.
  * Un saldo negativo significa que te pagó de más (a favor).
@@ -62,7 +62,7 @@ async function renderReceivables(root, params) {
   const owing = rows.filter((r) => r.balance > 0);
   const settled = rows.filter((r) => r.balance <= 0 && r.charged > 0);
   const sharedTotal = owing.reduce((s, r) => s + r.balance, 0);
-  const loans = showLoans ? await loadLoans() : [];
+  const loans = await loadLoans();
   const loansOwed = loans.reduce((s, l) => s + loanStatus(l).owed, 0);
 
   const total = (showShared ? sharedTotal : 0) + (showLoans ? loansOwed : 0);
@@ -76,13 +76,29 @@ async function renderReceivables(root, params) {
     filterChips(PRESTAMOS_FILTERS, f, (id) => Router.navigate(id === "todos" ? "/receivables" : `/receivables?f=${id}`))
   );
 
-  root.appendChild(
-    el("div", { class: "card balance-hero" }, [
-      el("div", { class: "label" }, "Te deben"),
-      el("div", { class: "amount" }, Money.format(total)),
-      el("div", { class: "label" }, parts.length ? parts.join(" · ") : "Nadie te debe nada"),
-    ])
-  );
+  // Tarjeta "Te deben": al tocarla se despliega el desglose de gastos compartidos y préstamos
+  const breakdownRow = (label, cents, sub) =>
+    el("div", { style: "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid rgba(0,0,0,.08);text-align:left;" }, [
+      el("div", {}, [el("div", { style: "font-weight:600;" }, label), el("div", { class: "muted", style: "font-size:12px;" }, sub)]),
+      el("strong", {}, Money.format(cents)),
+    ]);
+  const detail = el("div", { style: "display:none;margin-top:8px;" }, [
+    breakdownRow("Gastos compartidos", sharedTotal, `${owing.length} ${owing.length === 1 ? "persona te debe" : "personas te deben"}`),
+    breakdownRow("Préstamos", loansOwed, `${loans.length} ${loans.length === 1 ? "préstamo" : "préstamos"}`),
+  ]);
+  const chev = el("span", { style: "display:inline-block;transition:transform .2s;color:#c7c7cc;margin-left:6px;vertical-align:middle;", html: svgIcon("chevron", 16) });
+  const hero = el("div", { class: "card balance-hero", style: "cursor:pointer;" }, [
+    el("div", { class: "label" }, [el("span", {}, "Te deben"), chev]),
+    el("div", { class: "amount" }, Money.format(total)),
+    el("div", { class: "label" }, parts.length ? parts.join(" · ") : "Nadie te debe nada"),
+    detail,
+  ]);
+  hero.addEventListener("click", () => {
+    const open = detail.style.display === "none";
+    detail.style.display = open ? "block" : "none";
+    chev.style.transform = open ? "rotate(90deg)" : "";
+  });
+  root.appendChild(hero);
 
   if (showLoans) {
     if (f === "todos") root.appendChild(el("div", { class: "card-title", style: "margin:16px 2px 6px;" }, "Préstamos"));
@@ -137,7 +153,7 @@ async function renderPersonDetail(root, personId) {
 
   root.appendChild(
     el("div", { class: "topbar", style: "flex-direction:column;align-items:flex-start;gap:6px;" }, [
-      el("button", { class: "link-btn", onclick: () => Router.navigate("/receivables?f=compartidos") }, "‹ Compartidos"),
+      el("button", { class: "link-btn", onclick: () => Router.navigate("/receivables?f=compartidos") }, "‹ Gastos compartidos"),
       el("h1", {}, row.person.name),
     ])
   );

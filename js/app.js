@@ -52,7 +52,7 @@ function filterChips(options, activeId, onPick) {
 const DINERO_TABS = [
   { path: "/accounts", label: "Cuentas", icon: "bank" },
   { path: "/debts", label: "Deudas", icon: "card" },
-  { path: "/receivables", label: "Préstamos", icon: "handshake" },
+  { path: "/receivables", label: "Por cobrar", icon: "handshake" },
 ];
 const REPORTES_TABS = [
   { path: "/transactions", label: "Movimientos", icon: "transfer" },
@@ -62,7 +62,7 @@ const REPORTES_TABS = [
 const PRESTAMOS_FILTERS = [
   { id: "todos", label: "Todos", icon: "filter" },
   { id: "prestamos", label: "Préstamos", icon: "handshake" },
-  { id: "compartidos", label: "Compartidos", icon: "users" },
+  { id: "compartidos", label: "Gastos compartidos", icon: "users" },
 ];
 const PLANES_VIEWS = [
   { id: "presupuestos", label: "Presupuestos", icon: "pie" },
