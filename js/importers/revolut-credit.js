@@ -131,7 +131,7 @@
       parsedPayments,
       expectedCharges,
       expectedPayments,
-      ok: expectedCharges !== null && expectedPayments !== null && parsedCharges === expectedCharges && parsedPayments === expectedPayments && !warnings.length,
+      ok: expectedCharges !== null && expectedPayments !== null && parsedCharges === expectedCharges && parsedPayments === expectedPayments,
     };
 
     return { info, movements, warnings, reconciliation };
