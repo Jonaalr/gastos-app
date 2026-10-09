@@ -1211,3 +1211,8 @@ input[type="date"] { position: relative; }
 .section-chips, .section-chips .chip, .filter-opt, .chip {
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
+
+/* Todo lo que se puede tocar: al mantener presionado no se selecciona el texto ni sale el menú de copiar */
+button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .link-btn, .goal-row, .hero-row, .hero-toggle, .hero-nav, .fab {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
