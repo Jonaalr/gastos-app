@@ -1129,3 +1129,10 @@ input[type="date"] { position: relative; }
 @media (prefers-reduced-motion: reduce) {
   .chart-card.slide-l, .chart-card.slide-r, .chart-card.fade-in, .swipe-slot .ring svg, .swipe-slot .bar { animation: none !important; }
 }
+
+/* Puntitos de navegación del gasto por mes (uno por mes; el activo es una pastilla verde) */
+.dots-footer { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; min-height: 26px; }
+.dots-nav { display: flex; align-items: center; gap: 6px; }
+.dots-nav i { display: block; width: 6px; height: 6px; border-radius: 50%; background: rgba(120, 120, 128, 0.3); transition: width 0.3s ease, background 0.3s ease; }
+.dots-nav i.on { width: 18px; border-radius: 4px; background: var(--accent); }
+.dots-reset { font-size: 12px; }

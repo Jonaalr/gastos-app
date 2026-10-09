@@ -114,11 +114,11 @@ async function renderDashboard(root) {
     const monthName = `${MONTHS_ES[ref.getMonth()]} ${ref.getFullYear()}`;
     const card = el("div", { class: "chart-card" + slideClass(dir) }, [
       el("div", { class: "chart-head" }, [
-        el("div", { class: "chart-title" }, monthOffset === 0 ? "Gasto del mes" : `Gasto de ${monthName}`),
+        el("div", { class: "chart-title" }, monthName),
         el("div", { class: "chart-sub" }, `Ingresos ${Money.format(incomeM)}`),
       ]),
       el("div", { class: "donut-wrap" }, [ring, el("div", { class: "legend" }, legend.length ? legend : [el("div", { class: "text-dim" }, "Sin gastos este mes")])]),
-      swipeFooter(monthOffset, "meses", () => { monthOffset = 0; drawMonth(); }),
+      monthDotsFooter(monthOffset, () => { monthOffset = 0; drawMonth(); }),
     ]);
     monthHolder.innerHTML = "";
     monthHolder.appendChild(card);
@@ -347,4 +347,16 @@ function slideClass(dir) {
   if (dir > 0) return " slide-l";
   if (dir < 0) return " slide-r";
   return " fade-in";
+}
+
+/** Puntitos del mes: 12 posiciones (la de la derecha es este mes; la activa es la que se ve) */
+function monthDotsFooter(offset, onReset) {
+  const dots = [];
+  for (let i = 0; i < 12; i++) {
+    const active = 11 - i === offset;
+    dots.push(el("i", { class: active ? "on" : "" }));
+  }
+  const children = [el("div", { class: "dots-nav" }, dots)];
+  if (offset !== 0) children.push(el("button", { class: "link-btn dots-reset", onclick: onReset }, "Volver a hoy"));
+  return el("div", { class: "dots-footer" }, children);
 }
