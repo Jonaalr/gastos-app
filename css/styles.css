@@ -1149,3 +1149,4 @@ input[type="date"] { position: relative; }
 .hero-detail { padding: 2px 0 6px 12px; border-left: 2px solid var(--border); margin: 2px 0 4px 2px; }
 .hero-sub { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; color: var(--text-dim); }
 .hero-sub .neg { color: var(--expense); font-weight: 600; }
+.hero-row strong.pos { color: var(--income); }

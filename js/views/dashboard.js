@@ -57,6 +57,7 @@ async function renderDashboard(root) {
   const plansList = await loadInstallments();
   const debtsLeft = debtsList.reduce((sum, d) => sum + debtRemainingCents(d), 0) + plansList.reduce((sum, p) => sum + installmentRemainingCents(p), 0);
   const porPagar = creditDebt + pendingRecurring + debtsLeft;
+  const loansOwed = (await loadLoans()).reduce((sum, l) => sum + loanStatus(l).owed, 0);
   const disponible = moneyTotal - porPagar;
   let heroHidden = false;
   let porPagarOpen = false;
@@ -101,6 +102,7 @@ async function renderDashboard(root) {
       el("div", { class: "hero-rows" }, [
         toggleRow,
         detail,
+        loansOwed > 0 ? el("div", { class: "hero-row" }, [el("span", {}, "Te deben"), el("strong", { class: "pos" }, money(loansOwed))]) : null,
         el("div", { class: "hero-row" }, [el("span", {}, "Disponible"), el("strong", {}, money(disponible))]),
       ]),
     ])

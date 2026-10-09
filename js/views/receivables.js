@@ -58,6 +58,17 @@ async function renderReceivables(root, params) {
   const total = owing.reduce((s, r) => s + r.balance, 0);
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Por cobrar")]));
+  const tab = params.get("tab") === "prestamos" ? "prestamos" : "compartidos";
+  root.appendChild(
+    el("div", { class: "segmented", style: "margin:0 0 12px;" }, [
+      el("button", { class: tab === "compartidos" ? "active" : "", onclick: () => Router.navigate("/receivables") }, "Gastos compartidos"),
+      el("button", { class: tab === "prestamos" ? "active" : "", onclick: () => Router.navigate("/receivables?tab=prestamos") }, "Préstamos"),
+    ])
+  );
+  if (tab === "prestamos") {
+    await renderLoansTab(root);
+    return;
+  }
 
   root.appendChild(
     el("div", { class: "card balance-hero" }, [
