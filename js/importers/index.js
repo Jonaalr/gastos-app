@@ -6,7 +6,7 @@
  */
 
 const StatementImporters = {
-  list: [window.BanamexCreditImporter],
+  list: [window.BanamexCreditImporter, window.RevolutCreditImporter],
 
   /** Devuelve el lector que reconoce estas líneas de texto, o null */
   detect(lines) {
