@@ -30,6 +30,8 @@
     painted = null;
     const t = e.touches[0];
     sx = t.clientX; sy = t.clientY;
+    // Al apretar, la opción se pinta de inmediato (aunque no muevas el dedo)
+    if (start) paint(start);
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
