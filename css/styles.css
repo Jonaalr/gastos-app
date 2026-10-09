@@ -1144,7 +1144,7 @@ input[type="date"] { position: relative; }
 
 /* "Por pagar" desplegable en la tarjeta de saldo */
 .hero-toggle { cursor: pointer; }
-.hero-chev { display: inline-block; margin-left: 4px; font-size: 12px; transition: transform 0.25s ease; }
+.hero-chev { display: inline-block; margin-left: 6px; font-size: 20px; line-height: 1; font-weight: 700; transition: transform 0.25s ease; }
 .hero-chev.open { transform: rotate(180deg); }
 .hero-detail { padding: 2px 0 6px 12px; border-left: 2px solid var(--border); margin: 2px 0 4px 2px; }
 .hero-sub { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; color: var(--text-dim); }
