@@ -332,6 +332,10 @@ async function renderImportStatement(root, params) {
       if (changed) renderReviewKeepScroll();
     });
 
+    // Comentario libre: para anotar de qué fue un gasto que no reconoces por el nombre
+    const comment = el("input", { type: "text", class: "imp-comment", placeholder: "Comentario: ¿de qué fue?", value: row.comment || "" });
+    comment.addEventListener("input", () => { row.comment = comment.value; });
+
     const tags = [];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
     if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Devolución"));
@@ -343,6 +347,7 @@ async function renderImportStatement(root, params) {
         el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, m.description), el("span", { class: `imp-amount ${row.refund ? "income" : "expense"}` }, `${row.refund ? "+" : "-"}${Money.format(m.amountCents)}`)]),
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         select,
+        comment,
       ]),
     ]);
     return wrap;
@@ -388,7 +393,7 @@ async function renderImportStatement(root, params) {
           toAccountId: null,
           categoryId: r.refund ? null : r.categoryId,
           merchant: r.m.description,
-          note: r.m.rawDescription.replace(/\s+/g, " "),
+          note: [r.comment && r.comment.trim(), r.m.rawDescription.replace(/\s+/g, " ")].filter(Boolean).join(" · "),
           date: r.m.date,
           isRecurring: false,
           recurringDay: null,
