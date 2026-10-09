@@ -66,14 +66,19 @@ async function renderDashboard(root) {
     porPagarOpen = localStorage.getItem("porPagarAbierto") === "1";
   } catch (e) { /* sin almacenamiento: valores por defecto */ }
   const money = (cents) => (heroHidden ? "$••••••" : Money.format(cents));
-  const subRow = (label, cents) =>
-    el("div", { class: "hero-sub" }, [el("span", {}, label), el("span", { class: "neg" }, `−${money(cents)}`)]);
+  // Títulos que llevan a su sección (gris normal con flecha clara)
+  const goRow = (label, route, valueNode, cls = "hero-row") =>
+    el("div", { class: `${cls} hero-nav`, role: "button", tabindex: "0", onclick: () => Router.navigate(route) }, [
+      el("span", {}, [label, el("span", { class: "hero-go" }, "›")]),
+      valueNode,
+    ]);
+  const subRow = (label, route, cents) => goRow(label, route, el("span", { class: "neg" }, `−${money(cents)}`), "hero-sub");
   const detail = el("div", { class: "hero-detail", style: porPagarOpen ? "" : "display:none;" }, [
-    subRow("Tarjetas de crédito", creditDebt),
-    subRow("Pagos por registrar", pendingRecurring),
-    subRow("Deudas y compras a meses", debtsLeft),
+    subRow("Tarjetas de crédito", "/accounts", creditDebt),
+    subRow("Pagos por registrar", "/calendar", pendingRecurring),
+    subRow("Deudas y compras a meses", "/debts", debtsLeft),
   ]);
-  const chevron = el("span", { class: `hero-chev${porPagarOpen ? " open" : ""}` }, "▾");
+  const chevron = el("span", { class: `hero-chev${porPagarOpen ? " open" : ""}` }, "›");
   const toggleRow = el("div", {
     class: "hero-row hero-toggle",
     role: "button",
@@ -84,7 +89,7 @@ async function renderDashboard(root) {
       detail.style.display = porPagarOpen ? "" : "none";
       chevron.classList.toggle("open", porPagarOpen);
     },
-  }, [el("span", {}, [el("span", {}, "Por pagar "), chevron]), el("strong", { class: "neg" }, `−${money(porPagar)}`)]);
+  }, [el("span", {}, [el("span", {}, "Por pagar"), chevron]), el("strong", { class: "neg" }, `−${money(porPagar)}`)]);
   const eyeBtn = el("button", {
     class: "hero-eye",
     type: "button",
@@ -102,7 +107,7 @@ async function renderDashboard(root) {
       el("div", { class: "hero-rows" }, [
         toggleRow,
         detail,
-        loansOwed > 0 ? el("div", { class: "hero-row" }, [el("span", {}, "Te deben"), el("strong", { class: "pos" }, money(loansOwed))]) : null,
+        loansOwed > 0 ? goRow("Te deben", "/receivables?tab=prestamos", el("strong", { class: "pos" }, money(loansOwed))) : null,
         el("div", { class: "hero-row" }, [el("span", {}, "Disponible"), el("strong", {}, money(disponible))]),
       ]),
     ])

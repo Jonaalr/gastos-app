@@ -1144,9 +1144,13 @@ input[type="date"] { position: relative; }
 
 /* "Por pagar" desplegable en la tarjeta de saldo */
 .hero-toggle { cursor: pointer; }
-.hero-chev { display: inline-block; margin-left: 6px; font-size: 20px; line-height: 1; font-weight: 700; transition: transform 0.25s ease; }
-.hero-chev.open { transform: rotate(180deg); }
+.hero-chev { display: inline-block; margin-left: 6px; font-size: 22px; line-height: 1; font-weight: 400; color: #c7c7cc; transform: rotate(90deg); transition: transform 0.25s ease; }
+.hero-chev.open { transform: rotate(-90deg); }
 .hero-detail { padding: 2px 0 6px 12px; border-left: 2px solid var(--border); margin: 2px 0 4px 2px; }
 .hero-sub { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; color: var(--text-dim); }
 .hero-sub .neg { color: var(--expense); font-weight: 600; }
 .hero-row strong.pos { color: var(--income); }
+
+/* Títulos de la tarjeta de saldo que llevan a su sección: gris normal con flecha clara */
+.hero-nav { cursor: pointer; }
+.hero-go { display: inline-block; margin-left: 6px; font-size: 22px; line-height: 1; font-weight: 400; color: #c7c7cc; }
