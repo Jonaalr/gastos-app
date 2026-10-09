@@ -52,7 +52,7 @@ function filterChips(options, activeId, onPick) {
 const DINERO_TABS = [
   { path: "/accounts", label: "Cuentas", icon: "bank" },
   { path: "/debts", label: "Deudas", icon: "card" },
-  { path: "/receivables", label: "Por cobrar", icon: "handshake" },
+  { path: "/receivables", label: "Préstamos", icon: "handshake" },
 ];
 const REPORTES_TABS = [
   { path: "/transactions", label: "Movimientos", icon: "transfer" },

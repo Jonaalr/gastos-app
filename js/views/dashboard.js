@@ -225,21 +225,43 @@ async function renderDashboard(root) {
   drawWeek();
   root.appendChild(weekHolder);
 
-  // ---- Por cobrar (solo si hay gastos compartidos pendientes) ----
+  // ---- Por cobrar (solo si hay gastos compartidos o préstamos pendientes). Al tocarla se despliega el desglose ----
   const receivable = await receivablesTotal();
   const loanCount = (await loadLoans()).length;
   if (receivable.count > 0 || loanCount > 0) {
-    const people = receivable.count + loanCount;
-    root.appendChild(
-      el("div", { class: "receivable-card", onclick: () => Router.navigate("/receivables") }, [
-        el("div", {}, [
-          el("div", { class: "stat-label" }, "Por cobrar"),
-          el("div", { class: "receivable-amount" }, Money.format(receivable.total + loansOwed)),
-          el("div", { class: "stat-sub" }, `${people} ${people === 1 ? "persona te debe" : "personas te deben"}`),
-        ]),
-        el("div", { class: "receivable-arrow" }, "›"),
-      ])
-    );
+    let cobrarOpen = false;
+    try { cobrarOpen = localStorage.getItem("porCobrarAbierto") === "1"; } catch (e) { /* sin almacenamiento */ }
+    const cobrarRow = (label, route, cents, sub) =>
+      el("div", {
+        role: "button",
+        tabindex: "0",
+        style: "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid rgba(0,0,0,.08);cursor:pointer;",
+        onclick: () => Router.navigate(route),
+      }, [
+        el("div", {}, [el("div", { style: "font-weight:600;" }, label), el("div", { class: "stat-sub" }, sub)]),
+        el("strong", {}, Money.format(cents)),
+      ]);
+    const cobrarDetail = el("div", { style: cobrarOpen ? "" : "display:none;" }, [
+      cobrarRow("Gastos compartidos", "/receivables?f=compartidos", receivable.total, `${receivable.count} ${receivable.count === 1 ? "persona te debe" : "personas te deben"}`),
+      cobrarRow("Préstamos", "/receivables?f=prestamos", loansOwed, `${loanCount} ${loanCount === 1 ? "préstamo" : "préstamos"}`),
+    ]);
+    const cobrarChev = el("span", { class: `hero-chev${cobrarOpen ? " open" : ""}` }, "›");
+    const cobrarHead = el("div", {
+      role: "button",
+      tabindex: "0",
+      style: "cursor:pointer;",
+      onclick: () => {
+        cobrarOpen = !cobrarOpen;
+        try { localStorage.setItem("porCobrarAbierto", cobrarOpen ? "1" : "0"); } catch (e) { /* solo esta sesión */ }
+        cobrarDetail.style.display = cobrarOpen ? "" : "none";
+        cobrarChev.classList.toggle("open", cobrarOpen);
+      },
+    }, [
+      el("div", { class: "stat-label" }, [el("span", {}, "Por cobrar"), cobrarChev]),
+      el("div", { class: "receivable-amount" }, Money.format(receivable.total + loansOwed)),
+      el("div", { class: "stat-sub" }, "Toca para ver el desglose"),
+    ]);
+    root.appendChild(el("div", { class: "receivable-card", style: "display:block;" }, [cobrarHead, cobrarDetail]));
   }
 
   // ---- Cuentas (carrusel horizontal) ----

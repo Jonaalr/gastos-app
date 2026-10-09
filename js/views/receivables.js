@@ -62,7 +62,7 @@ async function renderReceivables(root, params) {
   const owing = rows.filter((r) => r.balance > 0);
   const settled = rows.filter((r) => r.balance <= 0 && r.charged > 0);
   const sharedTotal = owing.reduce((s, r) => s + r.balance, 0);
-  const loans = await loadLoans();
+  const loans = showLoans ? await loadLoans() : [];
   const loansOwed = loans.reduce((s, l) => s + loanStatus(l).owed, 0);
 
   const total = (showShared ? sharedTotal : 0) + (showLoans ? loansOwed : 0);
@@ -76,29 +76,13 @@ async function renderReceivables(root, params) {
     filterChips(PRESTAMOS_FILTERS, f, (id) => Router.navigate(id === "todos" ? "/receivables" : `/receivables?f=${id}`))
   );
 
-  // Tarjeta "Te deben": al tocarla se despliega el desglose de gastos compartidos y préstamos
-  const breakdownRow = (label, cents, sub) =>
-    el("div", { style: "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid rgba(0,0,0,.08);text-align:left;" }, [
-      el("div", {}, [el("div", { style: "font-weight:600;" }, label), el("div", { class: "muted", style: "font-size:12px;" }, sub)]),
-      el("strong", {}, Money.format(cents)),
-    ]);
-  const detail = el("div", { style: "display:none;margin-top:8px;" }, [
-    breakdownRow("Gastos compartidos", sharedTotal, `${owing.length} ${owing.length === 1 ? "persona te debe" : "personas te deben"}`),
-    breakdownRow("Préstamos", loansOwed, `${loans.length} ${loans.length === 1 ? "préstamo" : "préstamos"}`),
-  ]);
-  const chev = el("span", { style: "display:inline-block;transition:transform .2s;color:#c7c7cc;margin-left:6px;vertical-align:middle;", html: svgIcon("chevron", 16) });
-  const hero = el("div", { class: "card balance-hero", style: "cursor:pointer;" }, [
-    el("div", { class: "label" }, [el("span", {}, "Te deben"), chev]),
-    el("div", { class: "amount" }, Money.format(total)),
-    el("div", { class: "label" }, parts.length ? parts.join(" · ") : "Nadie te debe nada"),
-    detail,
-  ]);
-  hero.addEventListener("click", () => {
-    const open = detail.style.display === "none";
-    detail.style.display = open ? "block" : "none";
-    chev.style.transform = open ? "rotate(90deg)" : "";
-  });
-  root.appendChild(hero);
+  root.appendChild(
+    el("div", { class: "card balance-hero" }, [
+      el("div", { class: "label" }, "Te deben"),
+      el("div", { class: "amount" }, Money.format(total)),
+      el("div", { class: "label" }, parts.length ? parts.join(" · ") : "Nadie te debe nada"),
+    ])
+  );
 
   if (showLoans) {
     if (f === "todos") root.appendChild(el("div", { class: "card-title", style: "margin:16px 2px 6px;" }, "Préstamos"));
