@@ -163,7 +163,7 @@ async function renderDashboard(root) {
         el("div", { class: "chart-sub" }, `${Money.format(weekTotal)} gastados`),
       ]),
       el("div", { html: `<svg viewBox="0 0 308 120" width="100%" height="120" role="img" aria-label="Gasto de los últimos 7 días">${bars}</svg>` }),
-      swipeFooter(weekOffset, "semanas", () => { weekOffset = 0; drawWeek(); }),
+      weekDotsFooter(weekOffset, () => { weekOffset = 0; drawWeek(); }),
     ]);
     weekHolder.innerHTML = "";
     weekHolder.appendChild(card);
@@ -355,6 +355,19 @@ function monthDotsFooter(offset, onReset) {
   for (let i = 0; i < 12; i++) {
     const active = 11 - i === offset;
     dots.push(el("i", { class: active ? "on" : "" }));
+  }
+  const children = [el("div", { class: "dots-nav" }, dots)];
+  if (offset !== 0) children.push(el("button", { class: "link-btn dots-reset", onclick: onReset }, "Volver a hoy"));
+  return el("div", { class: "dots-footer" }, children);
+}
+
+/** Puntitos de semanas: 12 por bloque; al pasar de 12 semanas atrás, los puntos cambian de bloque */
+function weekDotsFooter(offset, onReset) {
+  const base = Math.floor(offset / 12) * 12;
+  const dots = [];
+  for (let i = 0; i < 12; i++) {
+    const value = base + (11 - i);
+    dots.push(el("i", { class: value === offset ? "on" : "" }));
   }
   const children = [el("div", { class: "dots-nav" }, dots)];
   if (offset !== 0) children.push(el("button", { class: "link-btn dots-reset", onclick: onReset }, "Volver a hoy"));
