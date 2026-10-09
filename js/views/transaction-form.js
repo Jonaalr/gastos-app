@@ -113,6 +113,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
     mode: data.split ? "manual" : "equal",
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
+    paid: new Set(data.split ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
   };
 
   /** Calcula el reparto a partir del monto y la forma elegida. Devuelve error o el reparto. */
@@ -164,7 +165,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       .map((id) => {
         const value = split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
         return `<div class="split-row">
-          <span>${escapeHtml(nameOf(id))}</span>
+          <span>${escapeHtml(nameOf(id))}<label class="split-paid"><input type="checkbox" data-paid="${id}" ${split.paid.has(id) ? "checked" : ""}> Ya me pagó</label></span>
           <input type="number" inputmode="decimal" step="0.01" data-share="${id}" value="${value}" ${split.mode === "equal" ? "readonly" : ""}>
         </div>`;
       })
@@ -209,6 +210,14 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       input.addEventListener("input", () => {
         split.manual.set(parseInt(input.dataset.share, 10), Money.toCents(input.value));
         updateSplitSummary();
+      });
+    });
+
+    box.querySelectorAll("[data-paid]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const id = parseInt(input.dataset.paid, 10);
+        if (input.checked) split.paid.add(id);
+        else split.paid.delete(id);
       });
     });
 
@@ -382,7 +391,35 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
         toast(res.error, "error");
         return;
       }
-      splitRecord = { myShareCents: res.myShareCents, participants: res.participants };
+      splitRecord = {
+        myShareCents: res.myShareCents,
+        participants: res.participants.map((p) => ({ ...p, paid: split.paid.has(p.personId) })),
+      };
+    }
+
+    // "Ya me pagó": cada persona marcada genera un cobro en Por cobrar; al desmarcarla, el cobro se quita
+    const prevParts = existing?.split?.participants || [];
+    const curIds = new Set(splitRecord ? splitRecord.participants.map((p) => p.personId) : []);
+    const txDate = sheet.querySelector("#f-date").value || DateUtil.todayISO();
+    const payNote = `Pagó: ${sheet.querySelector("#f-merchant").value.trim() || "gasto compartido"}`;
+    if (splitRecord) {
+      for (const p of splitRecord.participants) {
+        const prevCol = prevParts.find((x) => x.personId === p.personId)?.collectionId || null;
+        if (p.paid && p.shareCents > 0) {
+          const fields = { personId: p.personId, amountCents: p.shareCents, method: "transfer", date: txDate, note: payNote, createdAt: new Date().toISOString() };
+          if (prevCol && (await DB.get("collections", prevCol))) {
+            await DB.put("collections", { ...(await DB.get("collections", prevCol)), ...fields, id: prevCol });
+            p.collectionId = prevCol;
+          } else {
+            p.collectionId = await DB.add("collections", fields);
+          }
+        } else if (prevCol) {
+          await DB.delete("collections", prevCol);
+        }
+      }
+    }
+    for (const prev of prevParts) {
+      if (prev.collectionId && !curIds.has(prev.personId)) await DB.delete("collections", prev.collectionId);
     }
 
     const record = {
@@ -462,6 +499,10 @@ async function applyBalanceDelta(tx, sign) {
 async function deleteTransactionWithBalances(tx) {
   await applyBalanceDelta(tx, -1);
   await DB.delete("transactions", tx.id);
+  // Quitar también los cobros que se registraron con "Ya me pagó"
+  for (const part of tx.split?.participants || []) {
+    if (part.collectionId) await DB.delete("collections", part.collectionId);
+  }
 }
 
 window.openTransactionSheet = openTransactionSheet;
