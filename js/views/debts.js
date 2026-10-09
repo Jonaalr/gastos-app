@@ -72,30 +72,42 @@ async function renderDebts(root, params) {
     }
 
     card.appendChild(
-      el("div", { class: "goal-row" }, [
+      tapRow([
         el("div", { class: "goal-head" }, [
           el("div", { class: "goal-name" }, d.name),
           el("div", { class: "goal-amount" }, `Faltan ${Money.format(remaining)}`),
         ]),
         el("div", { class: "goal-bar" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
-        el("div", { class: "goal-meta" }, [
-          el("span", {}, info),
-          el("div", { class: "goal-actions" }, [
-            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtPayment(d) }, "Abono a la deuda"),
-            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtSheet(d) }, "Editar"),
-          ]),
-        ]),
+        el("div", { class: "goal-meta" }, [el("span", {}, info)]),
         payments.length
           ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" },
               `Último pago: ${DateUtil.formatShort(payments[0].date)} por ${Money.format(payments[0].amountCents)}`)
           : null,
+      ], [
+        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtPayment(d) }, "Abono a la deuda"),
+        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtSheet(d) }, "Editar"),
       ])
     );
   }
 
-  card.appendChild(el("button", { class: "btn mt-8", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
-  if (showDebts) root.appendChild(card);
+  if (showDebts) {
+    root.appendChild(el("button", { class: "btn", style: "margin-bottom:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
+    root.appendChild(card);
+  }
   if (showPlans) await renderInstallmentsCard(root);
+}
+
+/** Fila compacta: al tocarla se despliegan sus botones (no los clics en los botones). */
+function tapRow(parts, detailNodes) {
+  const detail = el("div", { class: "goal-actions", style: "display:none;margin-top:10px;" }, detailNodes);
+  const row = el("div", { class: "goal-row goal-tap" }, [...parts, detail]);
+  row.addEventListener("click", (e) => {
+    if (e.target.closest("button, input, a")) return;
+    const open = detail.style.display === "none";
+    detail.style.display = open ? "flex" : "none";
+    row.classList.toggle("open", open);
+  });
+  return row;
 }
 
 /** Crear o editar una deuda (y revisar/borrar sus pagos). */
@@ -289,23 +301,20 @@ async function renderInstallmentsCard(root) {
       ? "Liquidada"
       : `Cuota ${p.paidMonths + 1} de ${p.totalMonths} · te quedan ${left} · ${Money.format(p.monthlyCents)} al mes${acc ? ` · ${acc.name}` : ""}`;
     card.appendChild(
-      el("div", { class: "goal-row" }, [
+      tapRow([
         el("div", { class: "goal-head" }, [
           el("div", { class: "goal-name" }, p.name),
           el("div", { class: "goal-amount" }, `Faltan ${Money.format(remaining)}`),
         ]),
         el("div", { class: "goal-bar" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
-        el("div", { class: "goal-meta" }, [
-          el("span", {}, info),
-          el("div", { class: "goal-actions" }, [
-            ...(done ? [] : [el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentPayment(p) }, "Registrar cuota")]),
-            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentSheet(p) }, "Editar"),
-          ]),
-        ]),
+        el("div", { class: "goal-meta" }, [el("span", {}, info)]),
+      ], [
+        ...(done ? [] : [el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentPayment(p) }, "Registrar cuota")]),
+        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentSheet(p) }, "Editar"),
       ])
     );
   }
-  card.appendChild(el("button", { class: "btn mt-8", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
+  root.appendChild(el("button", { class: "btn", style: "margin-bottom:12px;", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
   root.appendChild(card);
 }
 

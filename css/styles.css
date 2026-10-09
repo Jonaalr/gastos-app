@@ -1181,3 +1181,19 @@ input[type="date"] { position: relative; }
 
 /* Planes: Presupuestos y Metas del mismo tamaño */
 .chips-equal .chip { flex: 1 1 0; justify-content: center; }
+
+/* Fila tocable (Deudas / Compras a meses) */
+.goal-tap { cursor: pointer; }
+
+/* Casilla cuadrada con bordes redondeados */
+.checkbox-row input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; flex: 0 0 22px; margin: 0; padding: 0;
+  border: 2px solid #c7c7cc; border-radius: 7px; background: #fff; cursor: pointer;
+  display: inline-grid; place-content: center;
+}
+.checkbox-row input[type="checkbox"]:checked {
+  background-color: var(--accent); border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 16px 16px; background-position: center; background-repeat: no-repeat;
+}
