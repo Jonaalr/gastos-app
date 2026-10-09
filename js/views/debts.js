@@ -60,19 +60,27 @@ async function renderDebts(root, params) {
     );
   }
 
-  if (showDebts && debts.length === 0) {
-    root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar.")]));
-  }
   if (showDebts) {
+    // Línea, título "Deudas", tarjetas de deuda y "+ Nueva deuda"
+    root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
+    root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Deudas"));
+    if (debts.length === 0) {
+      root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar.")]));
+    }
     for (const d of debts) root.appendChild(debtCard(d));
     root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
+    // Línea, título "Tarjetas de crédito" y sus tarjetas
     if (creditCards.length > 0) {
+      root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
       root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Tarjetas de crédito"));
       for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
     }
   }
-  // Línea que separa las deudas/tarjetas de las compras a meses
-  if (showDebts && showPlans) root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
+  // Línea y título "Compras a meses" (al final de las tarjetas)
+  if (showDebts && showPlans) {
+    root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
+    root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Compras a meses"));
+  }
   if (showPlans) await renderInstallmentsCard(root);
 }
 
