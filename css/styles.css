@@ -1206,3 +1206,8 @@ input[type="date"] { position: relative; }
 
 /* Filtros: al deslizar el dedo sobre una opción, se pinta (como un menú desplegable) */
 .section-chips .chip.drag-on { background: var(--accent); border-color: var(--accent); color: #fff; transition: background-color 0.08s, color 0.08s; }
+
+/* Filtros: al mantener el dedo no se selecciona el texto ni sale el menú de copiar */
+.section-chips, .section-chips .chip, .filter-opt, .chip {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
