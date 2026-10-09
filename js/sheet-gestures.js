@@ -97,6 +97,29 @@
     sheet.addEventListener("pointercancel", finish);
   }
 
+  // Mientras hay una hoja abierta, la página de atrás no se desliza (si la hoja es corta, el dedo pasaba a la página)
+  let lockedY = null;
+  function syncScrollLock() {
+    const open = document.querySelectorAll(".sheet-backdrop").length > 0;
+    if (open && lockedY === null) {
+      lockedY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${lockedY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+    } else if (!open && lockedY !== null) {
+      const y = lockedY;
+      lockedY = null;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      window.scrollTo(0, y);
+    }
+  }
+
   const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
@@ -106,6 +129,7 @@
         }
       }
     }
+    syncScrollLock();
   });
   observer.observe(document.body, { childList: true });
 })();

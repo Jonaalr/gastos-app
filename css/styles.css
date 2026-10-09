@@ -1216,3 +1216,7 @@ input[type="date"] { position: relative; }
 button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .link-btn, .goal-row, .hero-row, .hero-toggle, .hero-nav, .fab {
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
+
+/* Hojas de filtro: al deslizar dentro de la lista se mueve la lista, no la página de atrás */
+.sheet-backdrop, .sheet { overscroll-behavior: contain; }
+.sheet { touch-action: pan-y; }
