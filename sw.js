@@ -4,7 +4,7 @@
  * Los DATOS viven en IndexedDB, no aquí — este archivo solo cachea código.
  */
 
-const CACHE_NAME = "gastos-app-v106";
+const CACHE_NAME = "gastos-app-v107";
 const ASSETS = [
   "./",
   "./index.html",
@@ -52,6 +52,7 @@ const ASSETS = [
   "./js/views/settings.js",
   "./js/views/account-detail.js",
   "./js/sheet-gestures.js",
+  "./js/chip-drag.js",
   "./js/app.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

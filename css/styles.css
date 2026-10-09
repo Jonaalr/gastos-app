@@ -1204,20 +1204,5 @@ input[type="date"] { position: relative; }
 .tx-search-card .tx-filters-center .filter-row { margin: 0; justify-content: center; }
 .tx-search-card .tx-filters-center .filter-row + .filter-row { margin-top: 8px; }
 
-/* Filtros: al tocar una opción, su color se "pinta" de izquierda a derecha */
-@keyframes chipPaint {
-  from { background-size: 0% 100%; color: var(--text-dim); }
-  to { background-size: 100% 100%; color: #fff; }
-}
-.chip.on, .filter-opt.on {
-  background-color: var(--bg-elevated);
-  background-image: linear-gradient(var(--accent), var(--accent));
-  background-repeat: no-repeat;
-  background-position: left center;
-  background-size: 100% 100%;
-  animation: chipPaint 0.35s ease-out;
-}
-.chip.on { border-color: var(--accent); }
-@media (prefers-reduced-motion: reduce) {
-  .chip.on, .filter-opt.on { animation: none; }
-}
+/* Filtros: al deslizar el dedo sobre una opción, se pinta (como un menú desplegable) */
+.section-chips .chip.drag-on { background: var(--accent); border-color: var(--accent); color: #fff; transition: background-color 0.08s, color 0.08s; }
