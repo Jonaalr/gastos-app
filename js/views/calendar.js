@@ -49,20 +49,27 @@ async function renderCalendar(root) {
     );
   }
 
-  // Domiciliados: agrupar por comercio+categoría para no repetir cada transacción pasada
+  // Domiciliados: un renglón por cobro recurrente (el más reciente de cada serie)
   const events = [];
-  const seen = new Set();
   const recStatus = await loadRecurringStatus();
+  const peopleNames = Object.fromEntries((await DB.getAll("people")).map((p) => [p.id, p.name]));
+  const latestByKey = new Map();
   for (const t of recurring) {
     const key = `${t.merchant}-${t.categoryId}-${t.accountId}`;
-    if (seen.has(key)) continue;
+    const cur = latestByKey.get(key);
+    if (!cur || (t.date || "") > (cur.date || "")) latestByKey.set(key, t);
+  }
+  for (const t of latestByKey.values()) {
     if ((recStatus[recurringSeriesKey(t)] || {}).cancelled) continue;
-    seen.add(key);
+    const shared = t.split
+      ? ` · Compartido con ${t.split.participants.map((p) => peopleNames[p.personId] || "—").join(", ")} · tu parte ${Money.format(t.split.myShareCents)}`
+      : "";
     events.push({
       date: DateUtil.nextOccurrence(t.recurringDay, new Date()),
       title: t.merchant || "Pago domiciliado",
-      meta: `Recurrente · ~${Money.format(t.amountCents)}`,
+      meta: `Recurrente · ~${Money.format(t.amountCents)}${shared}`,
       icon: "repeat",
+      tx: t,
     });
   }
   events.sort((a, b) => a.date.localeCompare(b.date));
@@ -83,7 +90,7 @@ async function renderCalendar(root) {
     ]);
     for (const ev of events) {
       card.appendChild(
-        el("div", { class: "list-item" }, [
+        el("div", { class: "list-item", style: "cursor:pointer;", onclick: () => openTransactionSheet({ existing: ev.tx, onSaved: () => Router.render() }) }, [
           el("div", { class: "icon" }, iconNode(ev.icon)),
           el("div", { class: "main" }, [
             el("div", { class: "title" }, ev.title),
