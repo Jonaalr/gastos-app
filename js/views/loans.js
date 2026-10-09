@@ -127,15 +127,29 @@ async function openLoanPaymentSheet(loan, onSaved) {
     <p class="muted" style="font-size:14px;margin-top:0;">Te deben ${Money.format(status.owed)}</p>
     <div class="form-group"><label>Monto que te pagaron (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="p-amount" value="${Money.toInputValue(status.owed)}"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="p-date" value="${DateUtil.todayISO()}"></div>
-    <div class="form-group"><label>¿En qué cuenta entró el dinero?</label>
-      <select id="p-account"><option value="">Sin cuenta</option>${accounts.map((a) => `<option value="${a.id}">${escapeHtml(accountPickerLabel(a))}</option>`).join("")}</select>
+    <div class="form-group" id="p-account-wrap"><label>¿En qué cuenta entró el dinero?</label>
+      <select id="p-account">${accounts.map((a) => `<option value="${a.id}">${escapeHtml(accountPickerLabel(a))}</option>`).join("")}</select>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input type="checkbox" id="p-as-income" checked>
+        <span>Reflejarlo como ingreso (sube el saldo de la cuenta)</span>
+      </label>
+      <p class="muted" style="font-size:12px;margin-top:6px;">Sin esta opción solo baja lo que te deben. No se elige cuenta y el saldo no cambia.</p>
     </div>
     <button class="btn" id="p-save">Guardar pago</button>`);
+  const asIncomeBox = sheet.querySelector("#p-as-income");
+  const accWrap = sheet.querySelector("#p-account-wrap");
+  const syncAccount = () => { accWrap.style.display = asIncomeBox.checked ? "" : "none"; };
+  asIncomeBox.addEventListener("change", syncAccount);
+  syncAccount();
   sheet.querySelector("#p-save").addEventListener("click", async () => {
     const amountCents = Money.toCents(sheet.querySelector("#p-amount").value);
     const date = sheet.querySelector("#p-date").value || DateUtil.todayISO();
-    const accountId = parseInt(sheet.querySelector("#p-account").value, 10) || null;
+    const asIncome = sheet.querySelector("#p-as-income").checked;
+    const accountId = asIncome ? parseInt(sheet.querySelector("#p-account").value, 10) || null : null;
     if (!amountCents || amountCents <= 0) { toast("Ingresa un monto válido", "error"); return; }
+    if (asIncome && !accountId) { toast("Elige la cuenta donde entró el dinero", "error"); return; }
     if (amountCents > status.owed) { toast("Es más de lo que te deben", "error"); return; }
     const loans = await loadLoans();
     const target = loans.find((l) => l.id === loan.id);
