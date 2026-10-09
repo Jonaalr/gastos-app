@@ -210,3 +210,12 @@ function svgIconNode(name) {
   span.innerHTML = svgIcon(name, 20);
   return span;
 }
+
+/* ---------- Campos de dinero: al enfocar, un cero se borra y el contenido queda seleccionado.
+ * Así en iPhone lo que escribes reemplaza el "0.00" en vez de meterse entre los ceros. ---------- */
+document.addEventListener("focusin", (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement) || t.inputMode !== "decimal") return;
+  if (t.value === "0.00" || t.value === "0") t.value = "";
+  setTimeout(() => { try { t.select(); } catch (err) { /* algunos navegadores no permiten seleccionar */ } }, 0);
+});
