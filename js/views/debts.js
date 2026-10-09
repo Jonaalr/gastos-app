@@ -3,7 +3,7 @@
  *
  * Cada deuda tiene monto total, pago mensual opcional y su historial de pagos.
  * Lo que falta = total − pagos registrados. Los pagos que registras aquí
- * NO crean movimientos ni tocan saldos (igual que las metas de ahorro).
+ * Un abono puede reflejarse como gasto (crea un movimiento y baja el saldo de la cuenta de origen).
  * Se guardan en meta["debts"].
  */
 
@@ -65,7 +65,7 @@ async function renderDebts(root) {
         el("div", { class: "goal-meta" }, [
           el("span", {}, info),
           el("div", { class: "goal-actions" }, [
-            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtPayment(d) }, "Pagar"),
+            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtPayment(d) }, "Abono a la deuda"),
             el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtSheet(d) }, "Editar"),
           ]),
         ]),
@@ -132,9 +132,14 @@ async function openDebtSheet(existing) {
   // Quitar un pago registrado por error (recalcula lo que falta)
   sheet.querySelectorAll("[data-del-pay]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      if (!confirm("¿Quitar este pago? Lo que falta por pagar se recalcula.")) return;
+      if (!confirm("¿Quitar este abono? Lo que falta por pagar se recalcula. Si se reflejó como gasto, el gasto también se quita y el saldo de la cuenta se regresa.")) return;
       const debts = await loadDebts();
       const d = debts.find((x) => x.id === existing.id);
+      const pay = d && (d.payments || []).find((p) => p.id === btn.dataset.delPay);
+      if (pay && pay.transactionId) {
+        const tx = await DB.get("transactions", pay.transactionId);
+        if (tx) await deleteTransactionWithBalances(tx); // devuelve el monto al saldo
+      }
       if (d) d.payments = (d.payments || []).filter((p) => p.id !== btn.dataset.delPay);
       await saveDebts(debts);
       close();
@@ -154,9 +159,16 @@ async function openDebtSheet(existing) {
   }
 }
 
-/** Registrar un pago a una deuda (no crea movimiento ni toca saldos). */
+/** Abono a una deuda: eliges de qué cuenta sale y, si quieres, lo reflejas como gasto (baja el saldo). */
 async function openDebtPayment(debt) {
   const remaining = debtRemainingCents(debt);
+  const accounts = (await DB.getAll("accounts"))
+    .filter((a) => !a.archived && a.type !== "savings")
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  if (accounts.length === 0) {
+    toast("Primero crea una cuenta en Ajustes → Cuentas", "error");
+    return;
+  }
   const backdrop = el("div", { class: "sheet-backdrop" });
   const sheet = el("div", { class: "sheet" });
   backdrop.appendChild(sheet);
@@ -164,24 +176,56 @@ async function openDebtPayment(debt) {
   const close = () => backdrop.remove();
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
   const suggested = debt.monthlyCents > 0 ? Math.min(debt.monthlyCents, remaining) : remaining;
+  const accOptions = accounts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
   sheet.innerHTML = `
-    <div class="sheet-header"><h2>Pagar "${escapeHtml(debt.name)}"</h2><button class="sheet-close" data-close>✕</button></div>
-    <p class="muted">Te faltan ${Money.format(remaining)}</p>
-    <div class="form-group"><label>Monto pagado (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="p-amount" value="${Money.toInputValue(suggested)}"></div>
+    <div class="sheet-header"><h2>Abono a la deuda</h2><button class="sheet-close" data-close>✕</button></div>
+    <p class="muted">${escapeHtml(debt.name)} · te faltan ${Money.format(remaining)}</p>
+    <div class="form-group"><label>Monto del abono (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="p-amount" value="${Money.toInputValue(suggested)}"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="p-date" value="${DateUtil.todayISO()}"></div>
+    <div class="form-group"><label>¿De qué cuenta sale?</label><select id="p-account">${accOptions}</select></div>
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input type="checkbox" id="p-as-expense" checked>
+        <span>Reflejarlo como gasto (baja el saldo de la cuenta)</span>
+      </label>
+      <p class="muted" style="font-size:12px;margin-top:6px;">Con esta opción el abono aparece en Movimientos y el saldo de la cuenta baja. Sin ella, solo baja lo que falta de la deuda.</p>
+    </div>
     <div class="form-group"><label>Nota (opcional)</label><input type="text" id="p-note" placeholder="Ej. Pago de octubre"></div>
-    <p class="muted" style="font-size:12px;">Esto solo actualiza lo que falta de la deuda. No crea un gasto ni cambia tus cuentas.</p>
-    <button class="btn" id="p-save">Registrar pago</button>
+    <button class="btn" id="p-save">Registrar abono</button>
   `;
   sheet.querySelector("[data-close]").addEventListener("click", close);
   sheet.querySelector("#p-save").addEventListener("click", async () => {
     const amountCents = Money.toCents(sheet.querySelector("#p-amount").value);
-    if (amountCents <= 0) { toast("Pon el monto pagado", "error"); return; }
+    if (amountCents <= 0) { toast("Pon el monto del abono", "error"); return; }
     const date = sheet.querySelector("#p-date").value || DateUtil.todayISO();
     const note = sheet.querySelector("#p-note").value.trim();
+    const accountId = parseInt(sheet.querySelector("#p-account").value, 10);
+    const asExpense = sheet.querySelector("#p-as-expense").checked;
+
+    let transactionId = null;
+    if (asExpense) {
+      // Mismo registro que un gasto normal: sí baja el saldo de la cuenta
+      transactionId = await saveTransactionWithBalances({
+        type: "expense",
+        amountCents,
+        accountId,
+        toAccountId: null,
+        categoryId: null,
+        merchant: `Abono: ${debt.name}`,
+        note: note || "Abono a deuda",
+        date,
+        isRecurring: false,
+        recurringDay: null,
+        attachment: null,
+        split: null,
+        source: "debt",
+        createdAt: new Date().toISOString(),
+      }, null);
+    }
+
     const debts = await loadDebts();
     const d = debts.find((x) => x.id === debt.id);
-    if (d) d.payments = [...(d.payments || []), { id: uid(), date, amountCents, note }];
+    if (d) d.payments = [...(d.payments || []), { id: uid(), date, amountCents, note, accountId, transactionId }];
     await saveDebts(debts);
     close();
     Router.render();
