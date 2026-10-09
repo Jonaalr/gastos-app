@@ -222,13 +222,15 @@ async function renderDashboard(root) {
 
   // ---- Por cobrar (solo si hay gastos compartidos pendientes) ----
   const receivable = await receivablesTotal();
-  if (receivable.count > 0) {
+  const loanCount = (await loadLoans()).length;
+  if (receivable.count > 0 || loanCount > 0) {
+    const people = receivable.count + loanCount;
     root.appendChild(
       el("div", { class: "receivable-card", onclick: () => Router.navigate("/receivables") }, [
         el("div", {}, [
           el("div", { class: "stat-label" }, "Por cobrar"),
-          el("div", { class: "receivable-amount" }, Money.format(receivable.total)),
-          el("div", { class: "stat-sub" }, `${receivable.count} ${receivable.count === 1 ? "persona te debe" : "personas te deben"}`),
+          el("div", { class: "receivable-amount" }, Money.format(receivable.total + loansOwed)),
+          el("div", { class: "stat-sub" }, `${people} ${people === 1 ? "persona te debe" : "personas te deben"}`),
         ]),
         el("div", { class: "receivable-arrow" }, "›"),
       ])
