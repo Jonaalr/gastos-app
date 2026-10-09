@@ -194,7 +194,7 @@ async function renderImportStatement(root, params) {
           m,
           importKey,
           dup,
-          selected: !dup,
+          selected: false, // al abrir, nada seleccionado: marcas solo los que quieras importar
           refund,
           categoryId: refund ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
           manual: false,
