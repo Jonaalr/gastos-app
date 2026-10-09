@@ -97,28 +97,27 @@
     sheet.addEventListener("pointercancel", finish);
   }
 
-  // Mientras hay una hoja abierta, la página de atrás no se desliza (si la hoja es corta, el dedo pasaba a la página)
-  let lockedY = null;
-  function syncScrollLock() {
-    const open = document.querySelectorAll(".sheet-backdrop").length > 0;
-    if (open && lockedY === null) {
-      lockedY = window.scrollY;
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${lockedY}px`;
-      document.body.style.left = "0";
-      document.body.style.right = "0";
-      document.body.style.width = "100%";
-    } else if (!open && lockedY !== null) {
-      const y = lockedY;
-      lockedY = null;
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.left = "";
-      document.body.style.right = "";
-      document.body.style.width = "";
-      window.scrollTo(0, y);
+  // Mientras hay una hoja abierta, el dedo no mueve la página de atrás.
+  // Solo se permite el desplazamiento de la propia lista (si todavía puede moverse en esa dirección).
+  let lastY = null;
+  document.addEventListener("touchstart", (e) => { lastY = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!document.querySelector(".sheet-backdrop")) return;
+    const y = e.touches[0].clientY;
+    const dy = lastY === null ? 0 : y - lastY; // > 0: el dedo baja (la lista sube)
+    lastY = y;
+    let n = e.target;
+    while (n && n.nodeType === 1 && n !== document.body) {
+      const cs = getComputedStyle(n);
+      if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1) {
+        const max = n.scrollHeight - n.clientHeight;
+        if ((dy > 0 && n.scrollTop > 0) || (dy < 0 && n.scrollTop < max - 1)) return; // la lista se mueve
+        break;
+      }
+      n = n.parentElement;
     }
-  }
+    if (e.cancelable) e.preventDefault(); // la página de atrás no se mueve
+  }, { passive: false });
 
   const observer = new MutationObserver((mutations) => {
     for (const m of mutations) {
@@ -129,7 +128,6 @@
         }
       }
     }
-    syncScrollLock();
   });
   observer.observe(document.body, { childList: true });
 })();
