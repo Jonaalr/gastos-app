@@ -49,7 +49,6 @@ async function renderAccounts(root) {
     el("div", { class: "topbar" }, [
       el("div", {}, [
         el("h1", {}, "Dinero"),
-        el("div", { class: "subtitle" }, `${accounts.length} ${accounts.length === 1 ? "cuenta" : "cuentas"}`),
       ]),
     ])
   );
@@ -58,7 +57,7 @@ async function renderAccounts(root) {
   root.appendChild(
     el(
       "div",
-      { class: "filter-row" },
+      { class: "filter-row one-line" },
       ACCOUNT_FILTERS.map((f) =>
         el("button", { class: `chip ${accountsFilter === f.id ? "on" : ""}`, "data-filter": f.id, onclick: () => { accountsFilter = f.id; Router.render(); } }, f.label)
       )

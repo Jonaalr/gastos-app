@@ -1170,3 +1170,7 @@ input[type="date"] { position: relative; }
 .section-chips .chip { display: inline-flex; align-items: center; gap: 5px; }
 .section-chips .chip-icon { display: inline-flex; }
 .section-chips .chip-icon svg { width: 14px; height: 14px; }
+
+/* Filtros en una sola línea (cuentas: Todas · Efectivo · Débito · Crédito · Rendimientos) */
+.filter-row.one-line { flex-wrap: nowrap; gap: 4px; }
+.filter-row.one-line .chip { flex: 1 1 auto; text-align: center; white-space: nowrap; padding: 6px 4px; font-size: 11.5px; margin: 0; }
