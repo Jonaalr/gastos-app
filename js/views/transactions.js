@@ -78,9 +78,9 @@ async function renderTransactions(root, params) {
   search.addEventListener("change", () => goTo({ q: search.value.trim() }));
 
   root.appendChild(
-    el("div", { class: "card", style: "padding:12px;" }, [
+    el("div", { class: "card tx-search-card", style: "padding:12px;" }, [
       search,
-      ...txFiltersNodes(),
+      el("div", { class: "tx-filters-center" }, txFiltersNodes()),
       q ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Buscando "${q}" en todos los meses`) : null,
     ])
   );
