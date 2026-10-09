@@ -17,6 +17,7 @@ const NAV_GROUPS = {
   "/transactions": "/accounts",
   "/budgets": "/budgets",
   "/reports": "/budgets",
+  "/debts": "/budgets",
 };
 function navActivePath(path) {
   return NAV_GROUPS[path] || path;
@@ -39,6 +40,7 @@ const DINERO_TABS = [
 const PRESUPUESTO_TABS = [
   { path: "/budgets", label: "Presupuestos" },
   { path: "/reports", label: "Reportes" },
+  { path: "/debts", label: "Deudas" },
 ];
 
 function buildShell() {
@@ -83,6 +85,7 @@ function registerRoutes() {
   Router.register("/receivables", renderReceivables);
   Router.register("/account", renderAccountDetail);
   Router.register("/reconcile", renderReconcile);
+  Router.register("/debts", renderDebts);
 }
 
 async function main() {
