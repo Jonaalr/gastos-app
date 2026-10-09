@@ -65,78 +65,117 @@ async function renderDashboard(root) {
     ])
   );
 
-  // ---- Gasto del mes: anillo por categoría ----
-  const catTotals = new Map();
-  for (const t of txThisMonth) {
-    if (t.type !== "expense") continue;
-    const key = t.categoryId || 0;
-    catTotals.set(key, (catTotals.get(key) || 0) + myShareCents(t));
-  }
-  const slices = [...catTotals.entries()].sort((a, b) => b[1] - a[1]);
-  const top = slices.slice(0, 4);
-  const restTotal = slices.slice(4).reduce((sum, [, v]) => sum + v, 0);
-  if (restTotal) top.push([-1, restTotal]);
-  const palette = ["#16A34A", "#3B82F6", "#F59E0B", "#8B5CF6", "#94A3B8"];
-  const ringTotal = expenseThisMonth || 1;
-  const circ = 2 * Math.PI * 46;
-  let offset = 0;
-  const arcs = top
-    .map(([, val], i) => {
-      const len = (circ * val) / ringTotal;
-      const arc = `<circle cx="60" cy="60" r="46" fill="none" stroke="${palette[i]}" stroke-width="14" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)"/>`;
-      offset += len;
-      return arc;
-    })
-    .join("");
-  const ring = el("div", {
-    class: "ring",
-    html: `<svg viewBox="0 0 120 120" width="150" height="150"><circle cx="60" cy="60" r="46" fill="none" stroke="rgba(120,120,128,0.16)" stroke-width="14"/>${arcs}</svg>`,
-  });
-  ring.appendChild(el("div", { class: "ring-center" }, [el("div", { class: "ring-label" }, "Gastado"), el("div", { class: "ring-value" }, Money.format(expenseThisMonth))]));
-  const legend = top.map(([key, val], i) => {
-    const name = key === -1 ? "Otros" : catMap[key] ? catMap[key].name : "Sin categoría";
-    return el("div", { class: "legend-row" }, [
-      el("span", { class: "dot", style: `background:${palette[i]}` }),
-      el("span", { class: "legend-name" }, name),
-      el("span", { class: "legend-val" }, Money.format(val)),
-    ]);
-  });
-  root.appendChild(
-    el("div", { class: "chart-card" }, [
+  // ---- Gasto por mes: anillo por categoría. Desliza horizontalmente para ver meses anteriores ----
+  let monthOffset = 0;
+  const monthHolder = el("div", { class: "swipe-slot" });
+  const drawMonth = () => {
+    const ref = new Date();
+    ref.setDate(1);
+    ref.setMonth(ref.getMonth() - monthOffset);
+    const mk = DateUtil.monthKey(ref);
+    const txMonth = transactions.filter((t) => DateUtil.monthKey(t.date) === mk);
+    const incomeM = txMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
+    const expenseM = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
+    const catTotals = new Map();
+    for (const t of txMonth) {
+      if (t.type !== "expense") continue;
+      const key = t.categoryId || 0;
+      catTotals.set(key, (catTotals.get(key) || 0) + myShareCents(t));
+    }
+    const slices = [...catTotals.entries()].sort((a, b) => b[1] - a[1]);
+    const top = slices.slice(0, 4);
+    const restTotal = slices.slice(4).reduce((sum, [, v]) => sum + v, 0);
+    if (restTotal) top.push([-1, restTotal]);
+    const palette = ["#16A34A", "#3B82F6", "#F59E0B", "#8B5CF6", "#94A3B8"];
+    const ringTotal = expenseM || 1;
+    const circ = 2 * Math.PI * 46;
+    let offset = 0;
+    const arcs = top
+      .map(([, val], i) => {
+        const len = (circ * val) / ringTotal;
+        const arc = `<circle cx="60" cy="60" r="46" fill="none" stroke="${palette[i]}" stroke-width="14" stroke-dasharray="${len} ${circ - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)"/>`;
+        offset += len;
+        return arc;
+      })
+      .join("");
+    const ring = el("div", {
+      class: "ring",
+      html: `<svg viewBox="0 0 120 120" width="150" height="150"><circle cx="60" cy="60" r="46" fill="none" stroke="rgba(120,120,128,0.16)" stroke-width="14"/>${arcs}</svg>`,
+    });
+    ring.appendChild(el("div", { class: "ring-center" }, [el("div", { class: "ring-label" }, "Gastado"), el("div", { class: "ring-value" }, Money.format(expenseM))]));
+    const legend = top.map(([key, val], i) => {
+      const name = key === -1 ? "Otros" : catMap[key] ? catMap[key].name : "Sin categoría";
+      return el("div", { class: "legend-row" }, [
+        el("span", { class: "dot", style: `background:${palette[i]}` }),
+        el("span", { class: "legend-name" }, name),
+        el("span", { class: "legend-val" }, Money.format(val)),
+      ]);
+    });
+    const monthName = `${MONTHS_ES[ref.getMonth()]} ${ref.getFullYear()}`;
+    const card = el("div", { class: "chart-card" }, [
       el("div", { class: "chart-head" }, [
-        el("div", { class: "chart-title" }, "Gasto del mes"),
-        el("div", { class: "chart-sub" }, `Ingresos ${Money.format(incomeThisMonth)}`),
+        el("div", { class: "chart-title" }, monthOffset === 0 ? "Gasto del mes" : `Gasto de ${monthName}`),
+        el("div", { class: "chart-sub" }, `Ingresos ${Money.format(incomeM)}`),
       ]),
       el("div", { class: "donut-wrap" }, [ring, el("div", { class: "legend" }, legend.length ? legend : [el("div", { class: "text-dim" }, "Sin gastos este mes")])]),
-    ])
-  );
+      swipeFooter(monthOffset, "meses", () => { monthOffset = 0; drawMonth(); }),
+    ]);
+    monthHolder.innerHTML = "";
+    monthHolder.appendChild(card);
+  };
+  attachSwipe(monthHolder, (dir) => {
+    const next = monthOffset + dir;
+    if (next < 0 || next > 11) return;
+    monthOffset = next;
+    drawMonth();
+  });
+  drawMonth();
+  root.appendChild(monthHolder);
 
-  // ---- Últimos 7 días: barras ----
-  const week = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const iso = DateUtil.toISO(d);
-    const sum = transactions.filter((t) => t.type === "expense" && t.date === iso).reduce((acc, t) => acc + myShareCents(t), 0);
-    week.push({ sum, label: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()] });
-  }
-  const weekMax = Math.max(1, ...week.map((d) => d.sum));
-  const weekTotal = week.reduce((acc, d) => acc + d.sum, 0);
-  const bars = week
-    .map((d, i) => {
-      const h = Math.max(4, Math.round((d.sum / weekMax) * 84));
-      return `<rect x="${i * 44 + 9}" y="${100 - h}" width="26" height="${h}" rx="9" fill="#16A34A" opacity="${i === 6 ? 1 : 0.4}"/><text x="${i * 44 + 22}" y="116" text-anchor="middle" font-size="11" fill="#8E8E93">${d.label}</text>`;
-    })
-    .join("");
-  root.appendChild(
-    el("div", { class: "chart-card" }, [
+  // ---- Últimos 7 días por semana: barras. Desliza para ver semanas anteriores ----
+  let weekOffset = 0;
+  const weekHolder = el("div", { class: "swipe-slot" });
+  const drawWeek = () => {
+    const end = new Date();
+    end.setDate(end.getDate() - weekOffset * 7);
+    const week = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(end);
+      d.setDate(end.getDate() - i);
+      const iso = DateUtil.toISO(d);
+      const sum = transactions.filter((t) => t.type === "expense" && t.date === iso).reduce((acc, t) => acc + myShareCents(t), 0);
+      week.push({ sum, label: ["D", "L", "M", "M", "J", "V", "S"][d.getDay()] });
+    }
+    const weekMax = Math.max(1, ...week.map((d) => d.sum));
+    const weekTotal = week.reduce((acc, d) => acc + d.sum, 0);
+    const bars = week
+      .map((d, i) => {
+        const h = Math.max(4, Math.round((d.sum / weekMax) * 84));
+        return `<rect x="${i * 44 + 9}" y="${100 - h}" width="26" height="${h}" rx="9" fill="#16A34A" opacity="${i === 6 ? 1 : 0.4}"/><text x="${i * 44 + 22}" y="116" text-anchor="middle" font-size="11" fill="#8E8E93">${d.label}</text>`;
+      })
+      .join("");
+    const startD = new Date(end);
+    startD.setDate(end.getDate() - 6);
+    const rangeLabel = `${DateUtil.formatShort(DateUtil.toISO(startD))} – ${DateUtil.formatShort(DateUtil.toISO(end))}`;
+    const card = el("div", { class: "chart-card" }, [
       el("div", { class: "chart-head" }, [
-        el("div", { class: "chart-title" }, "Últimos 7 días"),
+        el("div", { class: "chart-title" }, weekOffset === 0 ? "Últimos 7 días" : `7 días · ${rangeLabel}`),
         el("div", { class: "chart-sub" }, `${Money.format(weekTotal)} gastados`),
       ]),
       el("div", { html: `<svg viewBox="0 0 308 120" width="100%" height="120" role="img" aria-label="Gasto de los últimos 7 días">${bars}</svg>` }),
-    ])
-  );
+      swipeFooter(weekOffset, "semanas", () => { weekOffset = 0; drawWeek(); }),
+    ]);
+    weekHolder.innerHTML = "";
+    weekHolder.appendChild(card);
+  };
+  attachSwipe(weekHolder, (dir) => {
+    const next = weekOffset + dir;
+    if (next < 0 || next > 52) return;
+    weekOffset = next;
+    drawWeek();
+  });
+  drawWeek();
+  root.appendChild(weekHolder);
 
   // ---- Por cobrar (solo si hay gastos compartidos pendientes) ----
   const receivable = await receivablesTotal();
@@ -280,3 +319,25 @@ window.renderDashboard = renderDashboard;
 window.renderTxRow = renderTxRow;
 window.accountIcon = accountIcon;
 window.accountSubtitle = accountSubtitle;
+
+/** Desliza horizontalmente: dir = +1 (a la izquierda del tiempo, más antiguo) o -1 (más reciente) */
+function attachSwipe(node, onSwipe) {
+  let x0 = null;
+  let y0 = null;
+  node.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  node.addEventListener("touchend", (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) onSwipe(dx > 0 ? 1 : -1);
+  });
+}
+
+/** Pie de la tarjeta: pista para deslizar y botón para volver al período actual */
+function swipeFooter(offset, unit, onReset) {
+  const hint = el("span", { class: "swipe-hint" }, offset === 0 ? `Desliza para ver ${unit} anteriores` : `Desliza para ver más ${unit}`);
+  const children = [hint];
+  if (offset !== 0) children.push(el("button", { class: "link-btn", onclick: onReset }, "Volver a hoy"));
+  return el("div", { class: "swipe-footer" }, children);
+}
