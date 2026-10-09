@@ -19,9 +19,10 @@ async function renderTransactions(root, params) {
   const fromF = params.get("from") || "";
   const toF = params.get("to") || "";
   const ranged = !!(fromF || toF);
+  const allTime = params.get("todo") === "1";
   const qLower = q.toLowerCase();
   const txMonth = allTx
-    .filter((t) => (q || ranged ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => (q || ranged || allTime ? true : DateUtil.monthKey(t.date) === monthKey))
     .filter((t) => (fromF ? t.date >= fromF : true) && (toF ? t.date <= toF : true))
     .filter((t) => {
       if (catF === "none") return !t.categoryId;
@@ -39,7 +40,7 @@ async function renderTransactions(root, params) {
   const goTo = (changes) => {
     const next = new URLSearchParams();
     const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, ...changes };
-    const dropMonth = !!(values.q || values.from || values.to);
+    const dropMonth = !!(values.q || values.from || values.to || values.todo);
     for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
     Router.navigate(`/transactions?${next.toString()}`);
   };
@@ -50,48 +51,116 @@ async function renderTransactions(root, params) {
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
   root.appendChild(sectionTabs(REPORTES_TABS, "/transactions"));
 
-  root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => goTo({ month: newMonth })));
 
   // Barra de búsqueda y filtros
   const search = el("input", { type: "search", placeholder: "Buscar comercio, nota o categoría", value: q, style: "width:100%;margin-bottom:8px;" });
   search.addEventListener("keydown", (e) => { if (e.key === "Enter") goTo({ q: search.value.trim() }); });
   search.addEventListener("change", () => goTo({ q: search.value.trim() }));
-  const catSel = el("select", {}, [
-    el("option", { value: "" }, "Todas las categorías"),
-    el("option", { value: "none" }, "Sin categoría"),
-    ...categories.filter((c) => c.kind === "expense" || c.kind === "income").sort((a, b) => a.name.localeCompare(b.name, "es")).map((c) =>
-      el("option", { value: String(c.id), ...(String(c.id) === catF ? { selected: "selected" } : {}) }, categoryLabel(c))
-    ),
-  ]);
-  catSel.value = catF;
-  catSel.addEventListener("change", () => goTo({ cat: catSel.value }));
-  const accSel = el("select", {}, [
-    el("option", { value: "" }, "Todas las cuentas"),
-    ...accounts.filter((a) => !a.archived).sort(accountPickerCompare).map((a) =>
-      el("option", { value: String(a.id) }, accountPickerLabel(a))
-    ),
-  ]);
-  accSel.value = accF;
-  accSel.addEventListener("change", () => goTo({ acc: accSel.value }));
+
+  // Etiquetas de los chips
+  const monthLabel = (k) => {
+    const [y, m] = k.split("-").map(Number);
+    const names = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    return `${names[m - 1]} ${y}`;
+  };
+  const periodLabel = allTime
+    ? "Todo el historial"
+    : ranged
+      ? `${fromF ? DateUtil.formatShort(fromF) : "…"} – ${toF ? DateUtil.formatShort(toF) : "…"}`
+      : monthLabel(monthKey);
+  const catObj = catF && catF !== "none" ? categories.find((c) => String(c.id) === catF) : null;
+  const catName = catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
+  const accObj = accF ? accMap[accF] : null;
+  const accName = accObj ? accObj.name : "Cuenta";
+
+  // Hojas de filtro (periodo, categoría, cuenta)
+  const openFilterSheet = (title, nodes) => {
+    const backdrop = el("div", { class: "sheet-backdrop" });
+    const sheet = el("div", { class: "sheet" }, [el("div", { class: "sheet-header" }, [el("h2", {}, title)]), ...nodes]);
+    backdrop.appendChild(sheet);
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) backdrop.remove(); });
+    document.body.appendChild(backdrop);
+    return backdrop;
+  };
+  const filterOpt = (label, on, onPick) =>
+    el("button", { class: `filter-opt${on ? " on" : ""}`, type: "button", onclick: onPick }, [
+      el("span", {}, label),
+      el("span", {}, on ? "✓" : ""),
+    ]);
+  const chip = (label, on, onPick) => el("button", { class: `chip${on ? " on" : ""}`, type: "button", onclick: onPick }, label);
+
+  const openPeriod = () => {
+    let mode = ranged ? "rango" : "mes";
+    const body = el("div", {});
+    const backdrop = openFilterSheet("Periodo", [body]);
+    const close = () => backdrop.remove();
+    const draw = () => {
+      body.innerHTML = "";
+      body.appendChild(el("div", { class: "segmented", style: "margin-bottom:10px;" }, [
+        el("button", { class: mode === "mes" ? "active" : "", type: "button", onclick: () => { mode = "mes"; draw(); } }, "Mes"),
+        el("button", { class: mode === "rango" ? "active" : "", type: "button", onclick: () => { mode = "rango"; draw(); } }, "Rango de fechas"),
+      ]));
+      if (mode === "mes") {
+        body.appendChild(filterOpt("Todo el historial", allTime, () => { close(); goTo({ todo: "1", month: "" }); }));
+        const keys = [];
+        const now = new Date();
+        for (let i = 0; i < 24; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          keys.push(DateUtil.monthKey(d));
+        }
+        if (!keys.includes(monthKey)) keys.unshift(monthKey);
+        for (const k of keys) {
+          body.appendChild(filterOpt(monthLabel(k), !allTime && !ranged && k === monthKey, () => { close(); goTo({ month: k, from: "", to: "", todo: "" }); }));
+        }
+      } else {
+        let f = fromF;
+        let t = toF;
+        body.appendChild(el("div", { style: "margin-bottom:8px;" }, [
+          el("label", { class: "muted", style: "font-size:12px;" }, "Desde"),
+          el("input", { type: "date", value: f, style: "width:100%;", onchange: (e) => { f = e.target.value; } }),
+        ]));
+        body.appendChild(el("div", { style: "margin-bottom:8px;" }, [
+          el("label", { class: "muted", style: "font-size:12px;" }, "Hasta"),
+          el("input", { type: "date", value: t, style: "width:100%;", onchange: (e) => { t = e.target.value; } }),
+        ]));
+        body.appendChild(el("button", { class: "btn", type: "button", onclick: () => { close(); goTo({ from: f, to: t, month: "", todo: "" }); } }, "Aplicar"));
+      }
+    };
+    draw();
+  };
+
+  const openCat = () => {
+    const opts = [
+      filterOpt("Todas las categorías", !catF, () => { backdrop.remove(); goTo({ cat: "" }); }),
+      filterOpt("Sin categoría", catF === "none", () => { backdrop.remove(); goTo({ cat: "none" }); }),
+      ...categories
+        .filter((c) => c.kind === "expense" || c.kind === "income")
+        .sort((a, b) => a.name.localeCompare(b.name, "es"))
+        .map((c) => filterOpt(categoryLabel(c), catF === String(c.id), () => { backdrop.remove(); goTo({ cat: String(c.id) }); })),
+    ];
+    const backdrop = openFilterSheet("Categoría", opts);
+  };
+
+  const openAcc = () => {
+    const opts = [
+      filterOpt("Todas las cuentas", !accF, () => { backdrop.remove(); goTo({ acc: "" }); }),
+      ...accounts
+        .filter((a) => !a.archived)
+        .sort(accountPickerCompare)
+        .map((a) => filterOpt(accountPickerLabel(a), accF === String(a.id), () => { backdrop.remove(); goTo({ acc: String(a.id) }); })),
+    ];
+    const backdrop = openFilterSheet("Cuenta", opts);
+  };
+
   root.appendChild(
     el("div", { class: "card", style: "padding:12px;" }, [
       search,
-      el("div", { class: "btn-row" }, [
-        el("div", { style: "flex:1;min-width:0;" }, [catSel]),
-        el("div", { style: "flex:1;min-width:0;" }, [accSel]),
-      ]),
-      el("div", { class: "btn-row", style: "margin-top:8px;" }, [
-        el("div", { style: "flex:1;min-width:0;" }, [
-          el("label", { class: "muted", style: "font-size:12px;" }, "Desde"),
-          el("input", { type: "date", value: fromF, style: "width:100%;", onchange: (e) => goTo({ from: e.target.value }) }),
-        ]),
-        el("div", { style: "flex:1;min-width:0;" }, [
-          el("label", { class: "muted", style: "font-size:12px;" }, "Hasta"),
-          el("input", { type: "date", value: toF, style: "width:100%;", onchange: (e) => goTo({ to: e.target.value }) }),
-        ]),
+      el("div", { class: "filter-row one-line" }, [
+        chip(`${periodLabel} ▾`, true, openPeriod),
+        chip(`${catName} ▾`, !!catF, openCat),
+        chip(`${accName} ▾`, !!accF, openAcc),
       ]),
       q ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Buscando "${q}" en todos los meses`) : null,
-      ranged ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, "Mostrando el rango de fechas elegido") : null,
     ])
   );
 
@@ -110,7 +179,7 @@ async function renderTransactions(root, params) {
   const days = Object.keys(byDay).sort().reverse();
 
   if (days.length === 0) {
-    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, "Sin movimientos este mes.")));
+    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, (allTime || ranged || q || catF || accF ? "Sin movimientos con estos filtros." : "Sin movimientos este mes."))));
   } else {
     for (const day of days) {
       const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, DateUtil.formatLong(day))]);

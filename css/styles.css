@@ -1174,3 +1174,7 @@ input[type="date"] { position: relative; }
 /* Filtros en una sola línea (cuentas: Todas · Efectivo · Débito · Crédito · Rendimientos) */
 .filter-row.one-line { flex-wrap: nowrap; gap: 4px; }
 .filter-row.one-line .chip { flex: 1 1 auto; text-align: center; white-space: nowrap; padding: 6px 4px; font-size: 11.5px; margin: 0; }
+
+/* Hojas de filtro de Movimientos (periodo, categoría, cuenta) */
+.filter-opt { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 11px 12px; margin-bottom: 6px; border: 0; border-radius: 10px; background: var(--bg-elevated); color: inherit; font-size: 15px; text-align: left; }
+.filter-opt.on { background: var(--accent); color: #fff; font-weight: 600; }
