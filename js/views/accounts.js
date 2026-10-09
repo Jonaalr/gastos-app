@@ -82,6 +82,7 @@ async function renderAccounts(root) {
 
   root.appendChild(el("button", { class: "btn mt-8", onclick: () => openAccountSheet({ onSaved: () => Router.render() }) }, "+ Agregar cuenta"));
   await renderGoalsCard(root);
+  await renderArchivedAccounts(root);
 
   root.querySelectorAll("[data-edit-account]").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
@@ -394,7 +395,7 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
 
   if (existing) {
     $("#f-archive").addEventListener("click", async () => {
-      if (!confirm("¿Archivar esta cuenta? No se borran sus transacciones, pero dejará de aparecer en el resumen.")) return;
+      if (!confirm("¿Archivar esta cuenta? Se oculta de Cuentas y del resumen, pero no se borra nada. Puedes restaurarla desde \"Cuentas archivadas\" al final de Cuentas.")) return;
       existing.archived = true;
       await DB.put("accounts", existing);
       close();
@@ -450,3 +451,29 @@ window.capitalizeSavings = capitalizeSavings;
 window.computeMonthlyInterestCents = computeMonthlyInterestCents;
 window.creditInfo = creditInfo;
 window.nextDayLabel = nextDayLabel;
+
+/** Cuentas archivadas (ocultas). Aquí se ven y se pueden restaurar; sus movimientos nunca se borraron. */
+async function renderArchivedAccounts(root) {
+  const archived = (await DB.getAll("accounts")).filter((a) => a.archived);
+  if (archived.length === 0) return;
+  const card = el("div", { class: "card archived-card" }, [el("div", { class: "card-title" }, "Cuentas archivadas")]);
+  for (const a of archived) {
+    card.appendChild(
+      el("div", { class: "list-item" }, [
+        el("div", { class: "main" }, [el("div", { class: "title" }, a.name), el("div", { class: "meta" }, "Oculta · sus movimientos siguen guardados")]),
+        el("button", { class: "btn btn-secondary btn-sm", style: "width:auto;", "data-restore-account": String(a.id) }, "Restaurar"),
+      ])
+    );
+  }
+  root.appendChild(card);
+  card.querySelectorAll("[data-restore-account]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const acc = await DB.get("accounts", parseInt(btn.dataset.restoreAccount, 10));
+      if (!acc) return;
+      acc.archived = false;
+      await DB.put("accounts", acc);
+      toast("Cuenta restaurada", "success");
+      Router.render();
+    });
+  });
+}
