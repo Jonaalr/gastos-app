@@ -1082,6 +1082,7 @@ input[type="date"], input[type="time"] {
 .imp-share.on { background: var(--accent); border-color: var(--accent); color: #ffffff; }
 .pending-split { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.22); color: var(--text); font-size: 11px; font-weight: 600; }
 
-/* "Ya me pagó" dentro del reparto de un gasto compartido */
-.split-paid { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 4px; }
-.split-paid input { width: 16px; height: 16px; accent-color: var(--accent); }
+/* Casilla "ya te pagó" a la derecha de la cantidad de cada persona en el reparto */
+.split-amt { display: flex; align-items: center; gap: 10px; }
+.split-amt input[type="number"] { width: 110px; }
+.split-row .split-paid-chk { width: 22px; height: 22px; flex: 0 0 22px; padding: 0; margin: 0; accent-color: var(--accent); }

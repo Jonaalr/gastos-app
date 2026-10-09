@@ -147,7 +147,9 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       box.innerHTML = `<span style="color:var(--warn);">${escapeHtml(res.error)}</span>`;
       return;
     }
-    box.innerHTML = `Tu parte <b>${Money.format(res.myShareCents)}</b> · Te deben <b>${Money.format(res.total - res.myShareCents)}</b>`;
+    // Te deben: solo lo que aún no te han pagado (las casillas marcadas ya no cuentan)
+    const owed = res.participants.filter((p) => !split.paid.has(p.personId)).reduce((s, p) => s + p.shareCents, 0);
+    box.innerHTML = `Tu parte <b>${Money.format(res.myShareCents)}</b> · Te deben <b>${Money.format(owed)}</b>`;
   }
 
   function renderSplitBox() {
@@ -163,10 +165,14 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
     const rows = [...split.selected]
       .map((id) => {
-        const value = split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
+        const paid = split.paid.has(id);
+        const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
         return `<div class="split-row">
-          <span>${escapeHtml(nameOf(id))}<label class="split-paid"><input type="checkbox" data-paid="${id}" ${split.paid.has(id) ? "checked" : ""}> Ya me pagó</label></span>
-          <input type="number" inputmode="decimal" step="0.01" data-share="${id}" value="${value}" ${split.mode === "equal" ? "readonly" : ""}>
+          <span>${escapeHtml(nameOf(id))}</span>
+          <div class="split-amt">
+            <input type="number" inputmode="decimal" step="0.01" data-share="${id}" value="${value}" ${split.mode === "equal" || paid ? "readonly" : ""}>
+            <input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>
+          </div>
         </div>`;
       })
       .join("");
@@ -218,6 +224,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
         const id = parseInt(input.dataset.paid, 10);
         if (input.checked) split.paid.add(id);
         else split.paid.delete(id);
+        renderSplitBox();
       });
     });
 
