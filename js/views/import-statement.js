@@ -206,12 +206,15 @@ async function renderImportStatement(root, params) {
         };
       });
 
-    // ¿Conviene ofrecer actualizar la tarjeta con los datos del estado de cuenta?
+    // ¿Conviene ofrecer actualizar la tarjeta? Solo si este estado es MÁS RECIENTE que el último
+    // que importaste para esta tarjeta. Los estados de meses pasados no cambian el corte ni el pago.
     const account = activeAccounts.find((a) => a.id === state.accountId);
-    const ageDays = info.cutDate ? DateUtil.daysBetween(info.cutDate, DateUtil.todayISO()) : 9999;
-    state.cardChanges = account && account.type === "credit" ? cardChangeList(account, info) : [];
-    state.statementAgeDays = ageDays;
-    state.updateCard = state.cardChanges.length > 0 && ageDays <= 70;
+    const isCredit = !!account && account.type === "credit";
+    const lastCut = account && account.statementCutDate;
+    state.staleStatement = isCredit && !!info.cutDate && !!lastCut && info.cutDate <= lastCut;
+    const isNewest = !state.staleStatement;
+    state.cardChanges = isCredit && isNewest ? cardChangeList(account, info) : [];
+    state.updateCard = false; // siempre desmarcada: la decides tú
   }
 
   function cardChangeList(account, info) {
@@ -247,15 +250,18 @@ async function renderImportStatement(root, params) {
     ]);
 
     if (state.cardChanges.length) {
-      const old = state.statementAgeDays > 70;
       const chk = el("input", { type: "checkbox", id: "imp-updatecard" });
       chk.checked = state.updateCard;
       chk.addEventListener("change", () => { state.updateCard = chk.checked; });
       summary.appendChild(
         el("label", { class: "checkbox-row", style: "margin-top:12px;" }, [
           chk,
-          el("span", { style: "font-size:13px;" }, `Actualizar mi tarjeta: ${state.cardChanges.join(" · ")}${old ? ` (este estado de cuenta es de hace ${Math.round(state.statementAgeDays / 30)} meses, por eso no lo marqué)` : ""}`),
+          el("span", { style: "font-size:13px;" }, `Actualizar mi tarjeta con este estado (más reciente): ${state.cardChanges.join(" · ")}`),
         ])
+      );
+    } else if (state.staleStatement) {
+      summary.appendChild(
+        el("div", { class: "field-hint", style: "margin-top:12px;" }, "Este estado es más antiguo que el último que importaste para esta tarjeta, así que no cambio su día de corte ni de pago.")
       );
     }
     reviewBox.appendChild(summary);
@@ -501,6 +507,7 @@ async function renderImportStatement(root, params) {
             account.dueDay = DateUtil.parseISO(info.dueDate).getDate();
             account.dueRefDate = DateUtil.nextOccurrence(account.dueDay);
           }
+          if (info.cutDate) account.statementCutDate = info.cutDate; // para no volver a pisar con estados viejos
         }
         await DB.put("accounts", account);
       }
