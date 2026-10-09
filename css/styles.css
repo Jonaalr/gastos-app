@@ -1136,3 +1136,8 @@ input[type="date"] { position: relative; }
 .dots-nav i { display: block; width: 6px; height: 6px; border-radius: 50%; background: rgba(120, 120, 128, 0.3); transition: width 0.3s ease, background 0.3s ease; }
 .dots-nav i.on { width: 18px; border-radius: 4px; background: var(--accent); }
 .dots-reset { font-size: 12px; }
+
+/* Ojito para ocultar solo el saldo del inicio */
+.hero-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hero-eye { all: unset; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: var(--fill); }
+.hero-eye:active { transform: scale(0.9); }
