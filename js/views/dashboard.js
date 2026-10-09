@@ -58,12 +58,16 @@ async function renderDashboard(root) {
   const debtsLeft = debtsList.reduce((sum, d) => sum + debtRemainingCents(d), 0) + plansList.reduce((sum, p) => sum + installmentRemainingCents(p), 0);
   const porPagar = creditDebt + pendingRecurring + debtsLeft;
   const loansOwed = (await loadLoans()).reduce((sum, l) => sum + loanStatus(l).owed, 0);
+  const receivable = await receivablesTotal();
+  const owedToMe = receivable.total + loansOwed;
   const disponible = moneyTotal - porPagar;
   let heroHidden = false;
   let porPagarOpen = false;
+  let teDebenOpen = false;
   try {
     heroHidden = localStorage.getItem("ocultarSaldoInicio") === "1";
     porPagarOpen = localStorage.getItem("porPagarAbierto") === "1";
+    teDebenOpen = localStorage.getItem("teDebenAbierto") === "1";
   } catch (e) { /* sin almacenamiento: valores por defecto */ }
   const money = (cents) => (heroHidden ? "$••••••" : Money.format(cents));
   // Títulos que llevan a su sección (gris normal con flecha clara)
@@ -78,7 +82,7 @@ async function renderDashboard(root) {
     subRow("Pagos por registrar", "/calendar", pendingRecurring),
     subRow("Deudas y compras a meses", "/debts", debtsLeft),
   ]);
-  const chevron = el("span", { class: `hero-chev${porPagarOpen ? " open" : ""}` }, "›");
+  const chevron = el("span", { class: `hero-chev${porPagarOpen ? " open" : ""}` });
   const toggleRow = el("div", {
     class: "hero-row hero-toggle",
     role: "button",
@@ -90,6 +94,25 @@ async function renderDashboard(root) {
       chevron.classList.toggle("open", porPagarOpen);
     },
   }, [el("span", {}, [el("span", {}, "Por pagar"), chevron]), el("strong", { class: "neg" }, `−${money(porPagar)}`)]);
+
+  // "Te deben" se despliega igual que "Por pagar": de dónde viene lo que te deben
+  const owedSub = (label, route, cents) => goRow(label, route, el("span", { class: "pos" }, money(cents)), "hero-sub");
+  const owedDetail = el("div", { class: "hero-detail", style: teDebenOpen ? "" : "display:none;" }, [
+    owedSub("Gastos compartidos", "/receivables?f=compartidos", receivable.total),
+    owedSub("Préstamos", "/receivables?f=prestamos", loansOwed),
+  ]);
+  const owedChevron = el("span", { class: `hero-chev${teDebenOpen ? " open" : ""}` });
+  const owedToggle = el("div", {
+    class: "hero-row hero-toggle",
+    role: "button",
+    tabindex: "0",
+    onclick: () => {
+      teDebenOpen = !teDebenOpen;
+      try { localStorage.setItem("teDebenAbierto", teDebenOpen ? "1" : "0"); } catch (e) { /* solo esta sesión */ }
+      owedDetail.style.display = teDebenOpen ? "" : "none";
+      owedChevron.classList.toggle("open", teDebenOpen);
+    },
+  }, [el("span", {}, [el("span", {}, "Te deben"), owedChevron]), el("strong", { class: "pos" }, money(owedToMe))]);
   const eyeBtn = el("button", {
     class: "hero-eye",
     type: "button",
@@ -107,7 +130,8 @@ async function renderDashboard(root) {
       el("div", { class: "hero-rows" }, [
         toggleRow,
         detail,
-        loansOwed > 0 ? goRow("Te deben", "/receivables?tab=prestamos", el("strong", { class: "pos" }, money(loansOwed))) : null,
+        owedToMe > 0 ? owedToggle : null,
+        owedToMe > 0 ? owedDetail : null,
         el("div", { class: "hero-row" }, [el("span", {}, "Disponible"), el("strong", {}, money(disponible))]),
       ]),
     ])
@@ -226,7 +250,6 @@ async function renderDashboard(root) {
   root.appendChild(weekHolder);
 
   // ---- Por cobrar (solo si hay gastos compartidos o préstamos pendientes). Al tocarla se despliega el desglose ----
-  const receivable = await receivablesTotal();
   const loanCount = (await loadLoans()).length;
   if (receivable.count > 0 || loanCount > 0) {
     let cobrarOpen = false;
@@ -245,7 +268,7 @@ async function renderDashboard(root) {
       cobrarRow("Gastos compartidos", "/receivables?f=compartidos", receivable.total, `${receivable.count} ${receivable.count === 1 ? "persona te debe" : "personas te deben"}`),
       cobrarRow("Préstamos", "/receivables?f=prestamos", loansOwed, `${loanCount} ${loanCount === 1 ? "préstamo" : "préstamos"}`),
     ]);
-    const cobrarChev = el("span", { class: `hero-chev${cobrarOpen ? " open" : ""}` }, "›");
+    const cobrarChev = el("span", { class: `hero-chev${cobrarOpen ? " open" : ""}` });
     const cobrarHead = el("div", {
       role: "button",
       tabindex: "0",
