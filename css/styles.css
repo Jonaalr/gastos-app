@@ -1154,3 +1154,19 @@ input[type="date"] { position: relative; }
 /* Títulos de la tarjeta de saldo que llevan a su sección: gris normal con flecha clara */
 .hero-nav { cursor: pointer; }
 .hero-go { display: inline-block; margin-left: 6px; font-size: 22px; line-height: 1; font-weight: 400; color: #c7c7cc; }
+
+/* ---------- Dinero / Reportes: pestañas con icono y filtros con icono ---------- */
+.section-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 4px;
+  line-height: 1.1;
+}
+.section-tabs .st-icon { display: flex; }
+.section-tabs .st-icon svg { width: 18px; height: 18px; }
+.section-chips .chip { display: inline-flex; align-items: center; gap: 5px; }
+.section-chips .chip-icon { display: inline-flex; }
+.section-chips .chip-icon svg { width: 14px; height: 14px; }

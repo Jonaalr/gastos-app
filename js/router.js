@@ -11,7 +11,7 @@ const Router = {
   },
 
   async navigate(path) {
-    if (!location.hash.slice(1).startsWith(path)) {
+    if (location.hash.slice(1) !== path) {
       location.hash = path;
       return; // el evento hashchange dispara render()
     }

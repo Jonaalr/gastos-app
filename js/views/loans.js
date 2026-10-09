@@ -1,5 +1,5 @@
 /**
- * loans.js — Préstamos que hiciste (te deben). Viven en la pestaña "Préstamos" de Por cobrar.
+ * loans.js — Préstamos que hiciste (te deben). Viven en Dinero > Préstamos.
  *
  * Interés (como los bancos): cada mes se cobra el porcentaje sobre lo que falta de capital.
  * Cada pago primero cubre el interés acumulado y después el capital. Lo que no se paga de interés se suma a lo que te deben.
@@ -202,20 +202,14 @@ async function openLoanDetailSheet(loan, onChanged) {
   }
 }
 
-/** Pestaña "Préstamos" dentro de Por cobrar */
-async function renderLoansTab(root) {
+/** Lista de préstamos dentro de Dinero > Préstamos (el resumen "Te deben" lo pone receivables.js) */
+async function renderLoansTab(root, emptyHint = false) {
   const loans = await loadLoans();
   const rows = loans.map((l) => ({ loan: l, status: loanStatus(l) }));
-  const totalOwed = rows.reduce((s, r) => s + r.status.owed, 0);
-  root.appendChild(el("div", { class: "card" }, [
-    el("div", { class: "label" }, "Te deben"),
-    el("div", { class: "ring-value", style: "font-size:28px;font-weight:700;" }, Money.format(totalOwed)),
-    el("div", { class: "muted", style: "font-size:13px;" }, `${rows.length} ${rows.length === 1 ? "préstamo" : "préstamos"}`),
-  ]));
-  root.appendChild(el("button", { class: "btn", onclick: () => openNewLoanSheet(() => Router.render()) }, "+ Nuevo préstamo"));
+  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openNewLoanSheet(() => Router.render()) }, "+ Nuevo préstamo"));
 
   if (rows.length === 0) {
-    root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Aquí registras lo que prestaste y te van pagando. Toca + Nuevo préstamo.")]));
+    if (emptyHint) root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Aquí registras lo que prestaste y te van pagando. Toca + Nuevo préstamo.")]));
     return;
   }
   for (const { loan, status } of rows) {

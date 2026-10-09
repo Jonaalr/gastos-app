@@ -23,8 +23,8 @@ function debtRemainingCents(d) {
 async function renderDebts(root) {
   const debts = await loadDebts();
   const plans = await loadInstallments();
-  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Presupuestos")]));
-  root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/debts"));
+  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Dinero")]));
+  root.appendChild(sectionTabs(DINERO_TABS, "/debts"));
 
   if (debts.length > 0 || plans.length > 0) {
     const totalDebt = debts.reduce((s, d) => s + d.totalCents, 0) + plans.reduce((s, p) => s + p.monthlyCents * p.totalMonths, 0);

@@ -3,6 +3,7 @@
  */
 
 async function renderBudgets(root, params) {
+  if (params.get("vista") === "metas") return renderPlanesMetas(root);
   const monthKey = params.get("month") || DateUtil.monthKey();
   const [budgets, categories, allTx] = await Promise.all([
     DB.getAllByIndex("budgets", "monthKey", monthKey),
@@ -19,8 +20,9 @@ async function renderBudgets(root, params) {
     spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + myShareCents(t);
   }
 
-  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Presupuestos")]));
-  root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/budgets"));
+  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
+  root.appendChild(sectionTabs(REPORTES_TABS, "/budgets"));
+  root.appendChild(planesChips("presupuestos"));
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/budgets?month=${newMonth}`)));
 
   const totalLimit = budgets.reduce((s, b) => s + b.limitCents, 0);
@@ -144,3 +146,11 @@ async function openBudgetSheet({ monthKey, existing = null, availableCats = [], 
 }
 
 window.renderBudgets = renderBudgets;
+
+/** Planes > Metas: las metas de ahorro (la misma tarjeta que estaba en Cuentas) */
+async function renderPlanesMetas(root) {
+  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
+  root.appendChild(sectionTabs(REPORTES_TABS, "/budgets"));
+  root.appendChild(planesChips("metas"));
+  await renderGoalsCard(root);
+}

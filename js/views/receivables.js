@@ -1,5 +1,5 @@
 /**
- * receivables.js — Por cobrar: personas con quienes compartes gastos, sus cargos y sus cobros.
+ * receivables.js — Dinero > Préstamos (filtros Todos / Préstamos / Compartidos). Personas con quienes compartes gastos, sus cargos y sus cobros.
  *
  * Saldo de una persona = suma de su parte en los gastos entre varios − cobros registrados.
  * Un saldo negativo significa que te pagó de más (a favor).
@@ -52,53 +52,67 @@ async function renderReceivables(root, params) {
   const personId = parseInt(params.get("person") || "0", 10) || null;
   if (personId) return renderPersonDetail(root, personId);
 
+  // Filtro: ?f=todos | prestamos | compartidos (?tab=prestamos se sigue aceptando)
+  const legacy = params.get("tab") === "prestamos" ? "prestamos" : "todos";
+  const f = ["todos", "prestamos", "compartidos"].includes(params.get("f")) ? params.get("f") : legacy;
+  const showLoans = f !== "compartidos";
+  const showShared = f !== "prestamos";
+
   const rows = await computeReceivables();
   const owing = rows.filter((r) => r.balance > 0);
   const settled = rows.filter((r) => r.balance <= 0 && r.charged > 0);
-  const total = owing.reduce((s, r) => s + r.balance, 0);
+  const sharedTotal = owing.reduce((s, r) => s + r.balance, 0);
+  const loans = showLoans ? await loadLoans() : [];
+  const loansOwed = loans.reduce((s, l) => s + loanStatus(l).owed, 0);
 
-  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Por cobrar")]));
-  const tab = params.get("tab") === "prestamos" ? "prestamos" : "compartidos";
+  const total = (showShared ? sharedTotal : 0) + (showLoans ? loansOwed : 0);
+  const parts = [];
+  if (showLoans && loans.length) parts.push(`${loans.length} ${loans.length === 1 ? "préstamo" : "préstamos"}`);
+  if (showShared && owing.length) parts.push(`${owing.length} ${owing.length === 1 ? "persona" : "personas"}`);
+
+  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Dinero")]));
+  root.appendChild(sectionTabs(DINERO_TABS, "/receivables"));
   root.appendChild(
-    el("div", { class: "segmented", style: "margin:0 0 12px;" }, [
-      el("button", { class: tab === "compartidos" ? "active" : "", onclick: () => Router.navigate("/receivables") }, "Gastos compartidos"),
-      el("button", { class: tab === "prestamos" ? "active" : "", onclick: () => Router.navigate("/receivables?tab=prestamos") }, "Préstamos"),
-    ])
+    filterChips(PRESTAMOS_FILTERS, f, (id) => Router.navigate(id === "todos" ? "/receivables" : `/receivables?f=${id}`))
   );
-  if (tab === "prestamos") {
-    await renderLoansTab(root);
-    return;
-  }
 
   root.appendChild(
     el("div", { class: "card balance-hero" }, [
       el("div", { class: "label" }, "Te deben"),
       el("div", { class: "amount" }, Money.format(total)),
-      el("div", { class: "label" }, owing.length ? `de ${owing.length} ${owing.length === 1 ? "persona" : "personas"}` : "Nadie te debe nada"),
+      el("div", { class: "label" }, parts.length ? parts.join(" · ") : "Nadie te debe nada"),
     ])
   );
 
-  if (owing.length === 0) {
+  if (showLoans) {
+    if (f === "todos") root.appendChild(el("div", { class: "card-title", style: "margin:16px 2px 6px;" }, "Préstamos"));
+    await renderLoansTab(root, f === "prestamos");
+  }
+
+  if (showShared) {
+    if (f === "todos") root.appendChild(el("div", { class: "card-title", style: "margin:16px 2px 6px;" }, "Gastos compartidos"));
+    if (owing.length === 0) {
+      root.appendChild(
+        el("div", { class: "card" }, [
+          el("div", { class: "empty-state" }, "Cuando registres un gasto entre varios, aquí verás quién te debe y cuánto."),
+        ])
+      );
+    } else {
+      const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Pendientes")]);
+      for (const r of owing) card.appendChild(personRow(r));
+      root.appendChild(card);
+    }
+
+    if (settled.length) {
+      const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Al corriente")]);
+      for (const r of settled) card.appendChild(personRow(r));
+      root.appendChild(card);
+    }
+
     root.appendChild(
-      el("div", { class: "card" }, [
-        el("div", { class: "empty-state" }, "Cuando registres un gasto entre varios, aquí verás quién te debe y cuánto."),
-      ])
+      el("button", { class: "btn mt-8", onclick: () => openPersonSheet({ onSaved: () => Router.render() }) }, "+ Agregar persona")
     );
-  } else {
-    const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Pendientes")]);
-    for (const r of owing) card.appendChild(personRow(r));
-    root.appendChild(card);
   }
-
-  if (settled.length) {
-    const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Al corriente")]);
-    for (const r of settled) card.appendChild(personRow(r));
-    root.appendChild(card);
-  }
-
-  root.appendChild(
-    el("button", { class: "btn mt-8", onclick: () => openPersonSheet({ onSaved: () => Router.render() }) }, "+ Agregar persona")
-  );
 }
 
 function personRow(r) {
@@ -123,7 +137,7 @@ async function renderPersonDetail(root, personId) {
 
   root.appendChild(
     el("div", { class: "topbar", style: "flex-direction:column;align-items:flex-start;gap:6px;" }, [
-      el("button", { class: "link-btn", onclick: () => Router.navigate("/receivables") }, "‹ Por cobrar"),
+      el("button", { class: "link-btn", onclick: () => Router.navigate("/receivables?f=compartidos") }, "‹ Compartidos"),
       el("h1", {}, row.person.name),
     ])
   );

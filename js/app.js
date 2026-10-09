@@ -6,42 +6,72 @@
 const NAV_ITEMS = [
   { path: "/dashboard", icon: "home", label: "Inicio" },
   { path: "/accounts", icon: "bank", label: "Dinero" },
-  { path: "/budgets", icon: "pie", label: "Presup." },
+  { path: "/reports", icon: "chart", label: "Reportes" },
   { path: "/calendar", icon: "calendar", label: "Pagos" },
   { path: "/settings", icon: "gear", label: "Ajustes" },
 ];
 
-/** Qué pestaña de la barra se marca para cada pantalla (Dinero y Presupuestos agrupan dos vistas) */
+/** Qué pestaña de la barra se marca para cada pantalla (Dinero y Reportes agrupan varias vistas) */
 const NAV_GROUPS = {
   "/accounts": "/accounts",
-  "/transactions": "/accounts",
-  "/budgets": "/budgets",
-  "/reports": "/budgets",
-  "/debts": "/budgets",
+  "/debts": "/accounts",
+  "/receivables": "/accounts",
+  "/transactions": "/reports",
+  "/reports": "/reports",
+  "/budgets": "/reports",
 };
 function navActivePath(path) {
   return NAV_GROUPS[path] || path;
 }
 
-/** Selector de vistas dentro de una sección (Dinero: Cuentas | Movimientos; Presupuestos: Presupuestos | Reportes) */
+/** Selector de secciones de tres pestañas con icono. `match` lista rutas extra que la encienden */
 function sectionTabs(options, activePath) {
   const wrap = el("div", { class: "segmented section-tabs" });
   for (const opt of options) {
-    const btn = el("button", { type: "button", class: opt.path === activePath ? "active" : "" }, opt.label);
-    btn.addEventListener("click", () => { if (opt.path !== activePath) Router.navigate(opt.path); });
+    const isActive = opt.match ? opt.match.includes(activePath) : opt.path === activePath;
+    const btn = el("button", { type: "button", class: isActive ? "active" : "" }, [
+      el("span", { class: "st-icon", html: svgIcon(opt.icon, 18) }),
+      el("span", { class: "st-label" }, opt.label),
+    ]);
+    btn.addEventListener("click", () => { if (!isActive) Router.navigate(opt.path); });
     wrap.appendChild(btn);
   }
   return wrap;
 }
+
+/** Filtros tipo chip (Todos | Préstamos | Compartidos, Presupuestos | Metas) */
+function filterChips(options, activeId, onPick) {
+  return el("div", { class: "filter-row section-chips" }, options.map((o) =>
+    el("button", { class: `chip ${o.id === activeId ? "on" : ""}`, "data-filter": o.id, onclick: () => onPick(o.id) }, [
+      el("span", { class: "chip-icon", html: svgIcon(o.icon, 14) }),
+      el("span", {}, o.label),
+    ])
+  ));
+}
+
 const DINERO_TABS = [
-  { path: "/accounts", label: "Cuentas" },
-  { path: "/transactions", label: "Movimientos" },
+  { path: "/accounts", label: "Cuentas", icon: "bank" },
+  { path: "/debts", label: "Deudas", icon: "card" },
+  { path: "/receivables", label: "Préstamos", icon: "handshake" },
 ];
-const PRESUPUESTO_TABS = [
-  { path: "/budgets", label: "Presupuestos" },
-  { path: "/reports", label: "Reportes" },
-  { path: "/debts", label: "Deudas" },
+const REPORTES_TABS = [
+  { path: "/transactions", label: "Movimientos", icon: "transfer" },
+  { path: "/reports", label: "Informes", icon: "chart" },
+  { path: "/budgets", label: "Planes", icon: "target", match: ["/budgets"] },
 ];
+const PRESTAMOS_FILTERS = [
+  { id: "todos", label: "Todos", icon: "filter" },
+  { id: "prestamos", label: "Préstamos", icon: "handshake" },
+  { id: "compartidos", label: "Compartidos", icon: "users" },
+];
+const PLANES_VIEWS = [
+  { id: "presupuestos", label: "Presupuestos", icon: "pie" },
+  { id: "metas", label: "Metas", icon: "flag" },
+];
+/** Chips de Planes: Presupuestos | Metas */
+function planesChips(activeId) {
+  return filterChips(PLANES_VIEWS, activeId, (id) => Router.navigate(id === "metas" ? "/budgets?vista=metas" : "/budgets"));
+}
 
 function buildShell() {
   const app = document.getElementById("app");

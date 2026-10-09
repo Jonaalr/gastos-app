@@ -47,8 +47,8 @@ async function renderTransactions(root, params) {
   const income = txMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
   const expense = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
-  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Movimientos")]));
-  root.appendChild(sectionTabs(DINERO_TABS, "/transactions"));
+  root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
+  root.appendChild(sectionTabs(REPORTES_TABS, "/transactions"));
 
   root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => goTo({ month: newMonth })));
 

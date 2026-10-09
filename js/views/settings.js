@@ -52,7 +52,7 @@ async function renderSettings(root) {
       ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/receivables") }, [
         el("div", { class: "icon" }, iconNode("handshake")),
-        el("div", { class: "main" }, [el("div", { class: "title" }, "Por cobrar"), el("div", { class: "meta" }, "Personas que te deben por gastos compartidos")]),
+        el("div", { class: "main" }, [el("div", { class: "title" }, "Préstamos y compartidos"), el("div", { class: "meta" }, "Lo que te deben")]),
         el("div", {}, "›"),
       ]),
       el("div", { class: "list-item", onclick: () => Router.navigate("/categories") }, [

@@ -48,7 +48,7 @@ async function renderAccounts(root) {
   root.appendChild(
     el("div", { class: "topbar" }, [
       el("div", {}, [
-        el("h1", {}, "Cuentas"),
+        el("h1", {}, "Dinero"),
         el("div", { class: "subtitle" }, `${accounts.length} ${accounts.length === 1 ? "cuenta" : "cuentas"}`),
       ]),
     ])
@@ -81,7 +81,6 @@ async function renderAccounts(root) {
   }
 
   root.appendChild(el("button", { class: "btn mt-8", onclick: () => openAccountSheet({ onSaved: () => Router.render() }) }, "+ Agregar cuenta"));
-  await renderGoalsCard(root);
   await renderArchivedAccounts(root);
 
   root.querySelectorAll("[data-edit-account]").forEach((btn) => {
