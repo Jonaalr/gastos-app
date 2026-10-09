@@ -22,19 +22,21 @@ function debtRemainingCents(d) {
 
 const DEUDAS_FILTERS = [
   { id: "todas", label: "Todas", icon: "filter" },
-  { id: "deudas", label: "Mis deudas", icon: "card" },
+  { id: "deudas", label: "Deudas", icon: "banknote" },
+  { id: "tarjetas", label: "Tarjetas de crédito", icon: "card" },
   { id: "compras", label: "Compras a meses", icon: "cart" },
 ];
 let debtsFilterOpen = false;
 
 async function renderDebts(root, params) {
   const f = DEUDAS_FILTERS.some((o) => o.id === params.get("f")) ? params.get("f") : "todas";
-  const showDebts = f !== "compras";
-  const showPlans = f !== "deudas";
+  const showDebts = f === "todas" || f === "deudas";
+  const showCards = f === "todas" || f === "tarjetas";
+  const showPlans = f === "todas" || f === "compras";
   const debts = showDebts ? await loadDebts() : [];
   const plans = showPlans ? await loadInstallments() : [];
   // Saldo de tarjetas de crédito (se maneja en la cuenta; aquí solo se muestra)
-  const creditCards = showDebts
+  const creditCards = showCards
     ? (await DB.getAll("accounts")).filter((a) => a.type === "credit" && !a.archived).map((a) => ({ a, info: creditInfo(a) }))
     : [];
   const cardsOwed = creditCards.reduce((s, c) => s + c.info.spent, 0);
@@ -60,28 +62,28 @@ async function renderDebts(root, params) {
     );
   }
 
+  // Cada sección tiene su título y una línea arriba; el filtro elige cuáles se ven
+  const sectionLine = () => el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" });
+  const sectionTitle = (t) => el("div", { class: "section-heading", style: "margin:18px 0 0;" }, t);
   if (showDebts) {
-    // Línea, título "Deudas", tarjetas de deuda y "+ Nueva deuda"
-    root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
-    root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Deudas"));
+    root.appendChild(sectionLine());
+    root.appendChild(sectionTitle("Deudas"));
     if (debts.length === 0) {
       root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar.")]));
     }
     for (const d of debts) root.appendChild(debtCard(d));
     root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
-    // Línea, título "Tarjetas de crédito" y sus tarjetas
-    if (creditCards.length > 0) {
-      root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
-      root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Tarjetas de crédito"));
-      for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
-    }
   }
-  // Línea y título "Compras a meses" (al final de las tarjetas)
-  if (showDebts && showPlans) {
-    root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
-    root.appendChild(el("div", { class: "section-heading", style: "margin:18px 0 0;" }, "Compras a meses"));
+  if (showCards && creditCards.length > 0) {
+    root.appendChild(sectionLine());
+    root.appendChild(sectionTitle("Tarjetas de crédito"));
+    for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
   }
-  if (showPlans) await renderInstallmentsCard(root);
+  if (showPlans) {
+    root.appendChild(sectionLine());
+    root.appendChild(sectionTitle("Compras a meses"));
+    await renderInstallmentsCard(root);
+  }
 }
 
 /** Tarjeta de una deuda (mismo formato que Préstamos). Al tocarla abre su detalle. */
