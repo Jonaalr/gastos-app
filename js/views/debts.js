@@ -199,7 +199,7 @@ async function openDebtPayment(debt) {
     <p class="muted">${escapeHtml(debt.name)} · te faltan ${Money.format(remaining)}</p>
     <div class="form-group"><label>Monto del abono (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="p-amount" value="${Money.toInputValue(suggested)}"></div>
     <div class="form-group"><label>Fecha</label><input type="date" id="p-date" value="${DateUtil.todayISO()}"></div>
-    <div class="form-group"><label>¿De qué cuenta sale?</label><select id="p-account">${accOptions}</select></div>
+    <div class="form-group" id="p-account-wrap"><label>¿De qué cuenta sale?</label><select id="p-account">${accOptions}</select></div>
     <div class="form-group">
       <label class="checkbox-row">
         <input type="checkbox" id="p-as-expense" checked>
@@ -211,13 +211,21 @@ async function openDebtPayment(debt) {
     <button class="btn" id="p-save">Registrar abono</button>
   `;
   sheet.querySelector("[data-close]").addEventListener("click", close);
+  // La cuenta solo se pide si el abono se refleja como gasto
+  const asExpenseBox = sheet.querySelector("#p-as-expense");
+  const accWrap = sheet.querySelector("#p-account-wrap");
+  const syncAccount = () => { accWrap.style.display = asExpenseBox.checked ? "" : "none"; };
+  asExpenseBox.addEventListener("change", syncAccount);
+  syncAccount();
   sheet.querySelector("#p-save").addEventListener("click", async () => {
     const amountCents = Money.toCents(sheet.querySelector("#p-amount").value);
     if (amountCents <= 0) { toast("Pon el monto del abono", "error"); return; }
     const date = sheet.querySelector("#p-date").value || DateUtil.todayISO();
     const note = sheet.querySelector("#p-note").value.trim();
-    const accountId = parseInt(sheet.querySelector("#p-account").value, 10);
     const asExpense = sheet.querySelector("#p-as-expense").checked;
+    const pickedAccount = parseInt(sheet.querySelector("#p-account").value, 10);
+    if (asExpense && !pickedAccount) { toast("Elige la cuenta de la que sale el abono", "error"); return; }
+    const accountId = asExpense ? pickedAccount : null;
 
     let transactionId = null;
     if (asExpense) {
