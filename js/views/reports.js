@@ -4,16 +4,38 @@
 
 async function renderReports(root, params) {
   const monthKey = params.get("month") || DateUtil.monthKey();
+  const fromF = params.get("from") || "";
+  const toF = params.get("to") || "";
+  const allTime = params.get("todo") === "1";
+  const accF = params.get("acc") || "";
+  const ranged = !!(fromF || toF);
+  const useMonth = !ranged && !allTime;
+
   const [allTx, categories, accounts] = await Promise.all([
     DB.getAll("transactions"),
     DB.getAll("categories"),
     DB.getAll("accounts"),
   ]);
   const catMap = Object.fromEntries(categories.map((c) => [c.id, c]));
+  const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
 
-  const txMonth = allTx.filter((t) => DateUtil.monthKey(t.date) === monthKey && t.type === "expense");
+  // Cambia el periodo o la cuenta manteniendo lo demás (igual que en Movimientos)
+  const go = (changes) => {
+    const next = new URLSearchParams();
+    const values = { month: monthKey, from: fromF, to: toF, todo: allTime ? "1" : "", acc: accF, ...changes };
+    const dropMonth = !!(values.from || values.to || values.todo);
+    for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
+    Router.navigate(`/reports?${next.toString()}`);
+  };
+  const inPeriod = (t) => {
+    if (useMonth) return DateUtil.monthKey(t.date) === monthKey;
+    if (allTime) return true;
+    return (!fromF || t.date >= fromF) && (!toF || t.date <= toF);
+  };
+
+  const txPeriod = allTx.filter((t) => t.type === "expense" && inPeriod(t) && (!accF || String(t.accountId) === accF));
   const byCategory = {};
-  for (const t of txMonth) {
+  for (const t of txPeriod) {
     const key = t.categoryId || "none";
     byCategory[key] = (byCategory[key] || 0) + myShareCents(t);
   }
@@ -28,44 +50,51 @@ async function renderReports(root, params) {
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
   root.appendChild(sectionTabs(REPORTES_TABS, "/reports"));
-  root.appendChild(renderMonthSwitcher(monthKey, (newMonth) => Router.navigate(`/reports?month=${newMonth}`)));
+  root.appendChild(
+    el("div", { class: "card", style: "padding:12px;" }, [
+      filterBarChips({ monthKey, from: fromF, to: toF, todo: allTime, catF: "", accF, categories, accounts, accMap, withCategory: false, go }),
+    ])
+  );
 
-  // ---- Comparación con el mes anterior ----
-  const [py, pm] = monthKey.split("-").map(Number);
-  const prevKey = pm === 1 ? `${py - 1}-12` : `${py}-${String(pm - 1).padStart(2, "0")}`;
-  const prevTotal = allTx
-    .filter((t) => DateUtil.monthKey(t.date) === prevKey && t.type === "expense")
-    .reduce((sum, t) => sum + myShareCents(t), 0);
-  const diff = totalExpense - prevTotal;
-  const prevLabel = new Date(py, (pm === 1 ? 12 : pm - 1) - 1, 1).toLocaleDateString("es-MX", { month: "long" });
-  const compareCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Comparado con " + prevLabel)]);
-  if (prevTotal === 0 && totalExpense === 0) {
-    compareCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en ninguno de los dos meses."));
-  } else if (prevTotal === 0) {
-    compareCard.appendChild(el("div", { class: "muted" }, `No hay gastos registrados en ${prevLabel}, así que no hay con qué comparar.`));
-  } else {
-    const pct = Math.round((Math.abs(diff) / prevTotal) * 100);
-    const up = diff > 0;
-    compareCard.appendChild(
-      el("div", { class: "btn-row" }, [
-        el("div", {}, [el("div", { class: "muted" }, prevLabel), el("div", { class: "amount" }, Money.format(prevTotal))]),
-        el("div", {}, [el("div", { class: "muted" }, "Este mes"), el("div", { class: "amount" }, Money.format(totalExpense))]),
-      ])
-    );
-    compareCard.appendChild(
-      el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : up ? "warn" : "ok"}` },
-        diff === 0 ? "Igual que el mes anterior" : `${up ? "▲ Gastaste" : "▼ Gastaste"} ${Money.format(Math.abs(diff))} ${up ? "más" : "menos"} (${pct}%)`)
-    );
+  // ---- Comparación con el mes anterior (solo cuando el periodo es un mes) ----
+  if (useMonth) {
+    const [py, pm] = monthKey.split("-").map(Number);
+    const prevKey = pm === 1 ? `${py - 1}-12` : `${py}-${String(pm - 1).padStart(2, "0")}`;
+    const prevTotal = allTx
+      .filter((t) => DateUtil.monthKey(t.date) === prevKey && t.type === "expense" && (!accF || String(t.accountId) === accF))
+      .reduce((sum, t) => sum + myShareCents(t), 0);
+    const diff = totalExpense - prevTotal;
+    const prevLabel = new Date(py, (pm === 1 ? 12 : pm - 1) - 1, 1).toLocaleDateString("es-MX", { month: "long" });
+    const compareCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Comparado con " + prevLabel)]);
+    if (prevTotal === 0 && totalExpense === 0) {
+      compareCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en ninguno de los dos meses."));
+    } else if (prevTotal === 0) {
+      compareCard.appendChild(el("div", { class: "muted" }, `No hay gastos registrados en ${prevLabel}, así que no hay con qué comparar.`));
+    } else {
+      const pct = Math.round((Math.abs(diff) / prevTotal) * 100);
+      const up = diff > 0;
+      compareCard.appendChild(
+        el("div", { class: "btn-row" }, [
+          el("div", {}, [el("div", { class: "muted" }, prevLabel), el("div", { class: "amount" }, Money.format(prevTotal))]),
+          el("div", {}, [el("div", { class: "muted" }, "Este mes"), el("div", { class: "amount" }, Money.format(totalExpense))]),
+        ])
+      );
+      compareCard.appendChild(
+        el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : up ? "warn" : "ok"}` },
+          diff === 0 ? "Igual que el mes anterior" : `${up ? "▲ Gastaste" : "▼ Gastaste"} ${Money.format(Math.abs(diff))} ${up ? "más" : "menos"} (${pct}%)`)
+      );
+    }
+    root.appendChild(compareCard);
   }
-  root.appendChild(compareCard);
 
-  // ---- Gasto por categoría ----
+  // ---- Gasto por categoría (del periodo elegido) ----
   const catCard = el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Gasto por categoría"),
+    el("div", { class: "muted", style: "font-size:12px;margin:-6px 0 6px;" }, periodLabelFor({ monthKey, from: fromF, to: toF, todo: allTime })),
     el("div", { style: "font-size:22px;font-weight:800;margin-bottom:12px;" }, Money.format(totalExpense)),
   ]);
   if (rows.length === 0) {
-    catCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos este mes."));
+    catCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en este periodo."));
   } else {
     for (const r of rows) {
       const bar = el("div", { style: "margin-bottom:12px;" }, [

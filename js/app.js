@@ -73,6 +73,107 @@ function planesChips(activeId) {
   return filterChips(PLANES_VIEWS, activeId, (id) => Router.navigate(id === "metas" ? "/budgets?vista=metas" : "/budgets"));
 }
 
+const MESES_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+function monthLabelES(k) {
+  const [y, m] = k.split("-").map(Number);
+  return `${MESES_ES[m - 1]} ${y}`;
+}
+/** Texto del chip de periodo: mes, rango o todo el historial. p = { monthKey, from, to, todo } */
+function periodLabelFor(p) {
+  if (p.todo) return "Todo el historial";
+  if (p.from || p.to) return `${p.from ? DateUtil.formatShort(p.from) : "…"} – ${p.to ? DateUtil.formatShort(p.to) : "…"}`;
+  return monthLabelES(p.monthKey);
+}
+function chipBtn(label, on, onPick) {
+  return el("button", { class: `chip${on ? " on" : ""}`, type: "button", onclick: onPick }, label);
+}
+function filterOpt(label, on, onPick) {
+  return el("button", { class: `filter-opt${on ? " on" : ""}`, type: "button", onclick: onPick }, [
+    el("span", {}, label),
+    el("span", {}, on ? "✓" : ""),
+  ]);
+}
+function openFilterSheet(title, nodes) {
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const sheet = el("div", { class: "sheet" }, [el("div", { class: "sheet-header" }, [el("h2", {}, title)]), ...nodes]);
+  backdrop.appendChild(sheet);
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) backdrop.remove(); });
+  document.body.appendChild(backdrop);
+  return backdrop;
+}
+/** Hoja de Periodo: Mes (lista de meses) o Rango de fechas. go(cambios) aplica el filtro */
+function openPeriodSheet(p, go) {
+  let mode = p.from || p.to ? "rango" : "mes";
+  const body = el("div", {});
+  const backdrop = openFilterSheet("Periodo", [body]);
+  const close = () => backdrop.remove();
+  const draw = () => {
+    body.innerHTML = "";
+    body.appendChild(el("div", { class: "segmented", style: "margin-bottom:10px;" }, [
+      el("button", { class: mode === "mes" ? "active" : "", type: "button", onclick: () => { mode = "mes"; draw(); } }, "Mes"),
+      el("button", { class: mode === "rango" ? "active" : "", type: "button", onclick: () => { mode = "rango"; draw(); } }, "Rango de fechas"),
+    ]));
+    if (mode === "mes") {
+      body.appendChild(filterOpt("Todo el historial", !!p.todo, () => { close(); go({ todo: "1", month: "", from: "", to: "" }); }));
+      const now = new Date();
+      const keys = [];
+      for (let i = 0; i < 24; i++) keys.push(DateUtil.monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+      if (!keys.includes(p.monthKey)) keys.unshift(p.monthKey);
+      for (const k of keys) {
+        const on = !p.todo && !p.from && !p.to && k === p.monthKey;
+        body.appendChild(filterOpt(monthLabelES(k), on, () => { close(); go({ month: k, from: "", to: "", todo: "" }); }));
+      }
+    } else {
+      let f = p.from || "";
+      let t = p.to || "";
+      body.appendChild(el("div", { style: "margin-bottom:8px;" }, [
+        el("label", { class: "muted", style: "font-size:12px;" }, "Desde"),
+        el("input", { type: "date", value: f, style: "width:100%;", onchange: (e) => { f = e.target.value; } }),
+      ]));
+      body.appendChild(el("div", { style: "margin-bottom:8px;" }, [
+        el("label", { class: "muted", style: "font-size:12px;" }, "Hasta"),
+        el("input", { type: "date", value: t, style: "width:100%;", onchange: (e) => { t = e.target.value; } }),
+      ]));
+      body.appendChild(el("button", { class: "btn", type: "button", onclick: () => { close(); go({ from: f, to: t, month: "", todo: "" }); } }, "Aplicar"));
+    }
+  };
+  draw();
+}
+/** Hoja de Categoría (incluye Sin categoría) */
+function openCategorySheet(categories, catF, go) {
+  const backdrop = openFilterSheet("Categoría", [
+    filterOpt("Todas las categorías", !catF, () => { backdrop.remove(); go({ cat: "" }); }),
+    filterOpt("Sin categoría", catF === "none", () => { backdrop.remove(); go({ cat: "none" }); }),
+    ...categories
+      .filter((c) => c.kind === "expense" || c.kind === "income")
+      .sort((a, b) => a.name.localeCompare(b.name, "es"))
+      .map((c) => filterOpt(categoryLabel(c), catF === String(c.id), () => { backdrop.remove(); go({ cat: String(c.id) }); })),
+  ]);
+}
+/** Hoja de Cuenta */
+function openAccountSheet(accounts, accF, go) {
+  const backdrop = openFilterSheet("Cuenta", [
+    filterOpt("Todas las cuentas", !accF, () => { backdrop.remove(); go({ acc: "" }); }),
+    ...accounts
+      .filter((a) => !a.archived)
+      .sort(accountPickerCompare)
+      .map((a) => filterOpt(accountPickerLabel(a), accF === String(a.id), () => { backdrop.remove(); go({ acc: String(a.id) }); })),
+  ]);
+}
+/** Fila de chips Periodo | Categoría (opcional) | Cuenta. Movimientos e Informes la usan */
+function filterBarChips(o) {
+  // o = { monthKey, from, to, todo, catF, accF, categories, accounts, accMap, withCategory, go }
+  const chips = [chipBtn(`${periodLabelFor(o)} ▾`, true, () => openPeriodSheet(o, o.go))];
+  if (o.withCategory) {
+    const catObj = o.catF && o.catF !== "none" ? o.categories.find((c) => String(c.id) === o.catF) : null;
+    const catName = o.catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
+    chips.push(chipBtn(`${catName} ▾`, !!o.catF, () => openCategorySheet(o.categories, o.catF, o.go)));
+  }
+  const accObj = o.accF ? o.accMap[o.accF] : null;
+  chips.push(chipBtn(`${accObj ? accObj.name : "Cuenta"} ▾`, !!o.accF, () => openAccountSheet(o.accounts, o.accF, o.go)));
+  return el("div", { class: "filter-row one-line" }, chips);
+}
+
 function buildShell() {
   const app = document.getElementById("app");
 
