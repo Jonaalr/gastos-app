@@ -160,6 +160,26 @@ function openAccountSheet(accounts, accF, go) {
       .map((a) => filterOpt(accountPickerLabel(a), accF === String(a.id), () => { backdrop.remove(); go({ acc: String(a.id) }); })),
   ]);
 }
+/** Chip desplegable: muestra el filtro activo; al tocarlo se despliegan los demás (con icono) */
+function expandableFilter(options, activeId, open, onToggle, onPick) {
+  const cur = options.find((o) => o.id === activeId) || options[0];
+  const nodes = [
+    el("button", { class: "chip on", type: "button", "data-filter": cur.id, "aria-expanded": open ? "true" : "false", onclick: onToggle }, [
+      el("span", { class: "chip-icon", html: svgIcon(cur.icon, 14) }),
+      el("span", {}, `${cur.label} ${open ? "▴" : "▾"}`),
+    ]),
+  ];
+  if (open) {
+    for (const o of options) {
+      if (o.id === cur.id) continue;
+      nodes.push(el("button", { class: "chip", type: "button", "data-filter": o.id, onclick: () => onPick(o.id) }, [
+        el("span", { class: "chip-icon", html: svgIcon(o.icon, 14) }),
+        el("span", {}, o.label),
+      ]));
+    }
+  }
+  return el("div", { class: "filter-row section-chips" }, nodes);
+}
 /** Fila de chips Periodo | Categoría (opcional) | Cuenta. Movimientos e Informes la usan */
 function filterBarChips(o) {
   // o = { monthKey, from, to, todo, catF, accF, categories, accounts, accMap, withCategory, go }

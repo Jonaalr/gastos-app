@@ -48,6 +48,8 @@ function initialOf(name) {
   return (name || "?").trim().charAt(0).toUpperCase();
 }
 
+let receivablesFilterOpen = false;
+
 async function renderReceivables(root, params) {
   const personId = parseInt(params.get("person") || "0", 10) || null;
   if (personId) return renderPersonDetail(root, personId);
@@ -73,7 +75,9 @@ async function renderReceivables(root, params) {
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Dinero")]));
   root.appendChild(sectionTabs(DINERO_TABS, "/receivables"));
   root.appendChild(
-    filterChips(PRESTAMOS_FILTERS, f, (id) => Router.navigate(id === "todos" ? "/receivables" : `/receivables?f=${id}`))
+    expandableFilter(PRESTAMOS_FILTERS, f, receivablesFilterOpen,
+      () => { receivablesFilterOpen = !receivablesFilterOpen; Router.render(); },
+      (id) => { receivablesFilterOpen = false; Router.navigate(id === "todos" ? "/receivables" : `/receivables?f=${id}`); })
   );
 
   root.appendChild(

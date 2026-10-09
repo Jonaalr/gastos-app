@@ -56,32 +56,9 @@ async function renderAccounts(root) {
   root.appendChild(sectionTabs(DINERO_TABS, "/accounts"));
 
   root.appendChild(
-    el("div", { class: "filter-row section-chips" }, [
-      // Chip actual: al tocarlo se despliegan los demás filtros
-      el("button", {
-        class: "chip on",
-        type: "button",
-        "data-filter": accountsFilter,
-        "aria-expanded": accountsFilterOpen ? "true" : "false",
-        onclick: () => { accountsFilterOpen = !accountsFilterOpen; Router.render(); },
-      }, [
-        el("span", { class: "chip-icon", html: svgIcon(ACCOUNT_FILTERS.find((f) => f.id === accountsFilter).icon, 14) }),
-        el("span", {}, `${ACCOUNT_FILTERS.find((f) => f.id === accountsFilter).label} ${accountsFilterOpen ? "▴" : "▾"}`),
-      ]),
-      ...(accountsFilterOpen
-        ? ACCOUNT_FILTERS.filter((f) => f.id !== accountsFilter).map((f) =>
-            el("button", {
-              class: "chip",
-              type: "button",
-              "data-filter": f.id,
-              onclick: () => { accountsFilter = f.id; accountsFilterOpen = false; Router.render(); },
-            }, [
-              el("span", { class: "chip-icon", html: svgIcon(f.icon, 14) }),
-              el("span", {}, f.label),
-            ])
-          )
-        : []),
-    ])
+    expandableFilter(ACCOUNT_FILTERS, accountsFilter, accountsFilterOpen,
+      () => { accountsFilterOpen = !accountsFilterOpen; Router.render(); },
+      (id) => { accountsFilter = id; accountsFilterOpen = false; Router.render(); })
   );
 
   const savingsAccounts = accounts.filter((a) => a.type === "savings" && a.annualRatePct);

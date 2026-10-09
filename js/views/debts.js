@@ -20,11 +20,26 @@ function debtRemainingCents(d) {
   return Math.max(0, d.totalCents - debtPaidCents(d));
 }
 
-async function renderDebts(root) {
-  const debts = await loadDebts();
-  const plans = await loadInstallments();
+const DEUDAS_FILTERS = [
+  { id: "todas", label: "Todas", icon: "filter" },
+  { id: "deudas", label: "Mis deudas", icon: "card" },
+  { id: "compras", label: "Compras a meses", icon: "cart" },
+];
+let debtsFilterOpen = false;
+
+async function renderDebts(root, params) {
+  const f = DEUDAS_FILTERS.some((o) => o.id === params.get("f")) ? params.get("f") : "todas";
+  const showDebts = f !== "compras";
+  const showPlans = f !== "deudas";
+  const debts = showDebts ? await loadDebts() : [];
+  const plans = showPlans ? await loadInstallments() : [];
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Dinero")]));
   root.appendChild(sectionTabs(DINERO_TABS, "/debts"));
+  root.appendChild(
+    expandableFilter(DEUDAS_FILTERS, f, debtsFilterOpen,
+      () => { debtsFilterOpen = !debtsFilterOpen; Router.render(); },
+      (id) => { debtsFilterOpen = false; Router.navigate(id === "todas" ? "/debts" : `/debts?f=${id}`); })
+  );
 
   if (debts.length > 0 || plans.length > 0) {
     const totalDebt = debts.reduce((s, d) => s + d.totalCents, 0) + plans.reduce((s, p) => s + p.monthlyCents * p.totalMonths, 0);
@@ -40,7 +55,7 @@ async function renderDebts(root) {
   }
 
   const card = el("div", { class: "card goals-card" }, [el("div", { class: "card-title" }, "Mis deudas")]);
-  if (debts.length === 0) {
+  if (debts.length === 0 && showDebts) {
     card.appendChild(el("div", { class: "muted" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar."));
   }
 
@@ -79,8 +94,8 @@ async function renderDebts(root) {
   }
 
   card.appendChild(el("button", { class: "btn mt-8", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
-  root.appendChild(card);
-  await renderInstallmentsCard(root);
+  if (showDebts) root.appendChild(card);
+  if (showPlans) await renderInstallmentsCard(root);
 }
 
 /** Crear o editar una deuda (y revisar/borrar sus pagos). */
