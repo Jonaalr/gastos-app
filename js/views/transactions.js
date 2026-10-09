@@ -2,6 +2,8 @@
  * transactions.js — Listado completo de transacciones con filtro por mes.
  */
 
+let txFiltersOpen = false;
+
 async function renderTransactions(root, params) {
   const monthKey = params.get("month") || DateUtil.monthKey();
   const [allTx, categories, accounts] = await Promise.all([
@@ -53,6 +55,24 @@ async function renderTransactions(root, params) {
 
 
   // Barra de búsqueda y filtros
+  const txFiltersNodes = () => {
+    const pinfo = { monthKey, from: fromF, to: toF, todo: allTime };
+    const catObj = catF && catF !== "none" ? categories.find((c) => String(c.id) === catF) : null;
+    const catName = catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
+    const accObj = accF ? accMap[accF] : null;
+    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0);
+    return filtersPanel({
+      open: txFiltersOpen,
+      count,
+      onToggle: () => { txFiltersOpen = !txFiltersOpen; Router.render(); },
+      items: [
+        iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, (c) => goTo(c))),
+        iconChip("tag", `${catName} ▾`, !!catF, () => openCategorySheet(categories, catF, (c) => goTo(c))),
+        iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountSheet(accounts, accF, (c) => goTo(c))),
+      ],
+    });
+  };
+
   const search = el("input", { type: "search", placeholder: "Buscar comercio, nota o categoría", value: q, style: "width:100%;margin-bottom:8px;" });
   search.addEventListener("keydown", (e) => { if (e.key === "Enter") goTo({ q: search.value.trim() }); });
   search.addEventListener("change", () => goTo({ q: search.value.trim() }));
@@ -60,7 +80,7 @@ async function renderTransactions(root, params) {
   root.appendChild(
     el("div", { class: "card", style: "padding:12px;" }, [
       search,
-      filterBarChips({ monthKey, from: fromF, to: toF, todo: allTime, catF, accF, categories, accounts, accMap, withCategory: true, go: (c) => goTo(c) }),
+      ...txFiltersNodes(),
       q ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Buscando "${q}" en todos los meses`) : null,
     ])
   );

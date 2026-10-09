@@ -1178,3 +1178,6 @@ input[type="date"] { position: relative; }
 /* Hojas de filtro de Movimientos (periodo, categoría, cuenta) */
 .filter-opt { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 11px 12px; margin-bottom: 6px; border: 0; border-radius: 10px; background: var(--bg-elevated); color: inherit; font-size: 15px; text-align: left; }
 .filter-opt.on { background: var(--accent); color: #fff; font-weight: 600; }
+
+/* Planes: Presupuestos y Metas del mismo tamaño */
+.chips-equal .chip { flex: 1 1 0; justify-content: center; }

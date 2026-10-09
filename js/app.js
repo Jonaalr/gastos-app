@@ -39,14 +39,9 @@ function sectionTabs(options, activePath) {
   return wrap;
 }
 
-/** Filtros tipo chip (Todos | Préstamos | Compartidos, Presupuestos | Metas) */
+/** Filtros tipo chip (Todos | Préstamos | Compartidos) */
 function filterChips(options, activeId, onPick) {
-  return el("div", { class: "filter-row section-chips" }, options.map((o) =>
-    el("button", { class: `chip ${o.id === activeId ? "on" : ""}`, "data-filter": o.id, onclick: () => onPick(o.id) }, [
-      el("span", { class: "chip-icon", html: svgIcon(o.icon, 14) }),
-      el("span", {}, o.label),
-    ])
-  ));
+  return el("div", { class: "filter-row section-chips" }, options.map((o) => iconChip(o.icon, o.label, o.id === activeId, () => onPick(o.id))));
 }
 
 const DINERO_TABS = [
@@ -68,9 +63,11 @@ const PLANES_VIEWS = [
   { id: "presupuestos", label: "Presupuestos", icon: "pie" },
   { id: "metas", label: "Metas", icon: "flag" },
 ];
-/** Chips de Planes: Presupuestos | Metas */
+/** Chips de Planes: Presupuestos | Metas, del mismo tamaño */
 function planesChips(activeId) {
-  return filterChips(PLANES_VIEWS, activeId, (id) => Router.navigate(id === "metas" ? "/budgets?vista=metas" : "/budgets"));
+  return el("div", { class: "filter-row section-chips chips-equal" }, PLANES_VIEWS.map((o) =>
+    iconChip(o.icon, o.label, o.id === activeId, () => Router.navigate(o.id === "metas" ? "/budgets?vista=metas" : "/budgets"))
+  ));
 }
 
 const MESES_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -180,18 +177,20 @@ function expandableFilter(options, activeId, open, onToggle, onPick) {
   }
   return el("div", { class: "filter-row section-chips" }, nodes);
 }
-/** Fila de chips Periodo | Categoría (opcional) | Cuenta. Movimientos e Informes la usan */
-function filterBarChips(o) {
-  // o = { monthKey, from, to, todo, catF, accF, categories, accounts, accMap, withCategory, go }
-  const chips = [chipBtn(`${periodLabelFor(o)} ▾`, true, () => openPeriodSheet(o, o.go))];
-  if (o.withCategory) {
-    const catObj = o.catF && o.catF !== "none" ? o.categories.find((c) => String(c.id) === o.catF) : null;
-    const catName = o.catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
-    chips.push(chipBtn(`${catName} ▾`, !!o.catF, () => openCategorySheet(o.categories, o.catF, o.go)));
-  }
-  const accObj = o.accF ? o.accMap[o.accF] : null;
-  chips.push(chipBtn(`${accObj ? accObj.name : "Cuenta"} ▾`, !!o.accF, () => openAccountSheet(o.accounts, o.accF, o.go)));
-  return el("div", { class: "filter-row one-line" }, chips);
+/** Chip con icono (filtros de Movimientos, Informes y Planes) */
+function iconChip(icon, label, on, onPick) {
+  return el("button", { class: `chip${on ? " on" : ""}`, type: "button", onclick: onPick }, [
+    el("span", { class: "chip-icon", html: svgIcon(icon, 14) }),
+    el("span", {}, label),
+  ]);
+}
+/** Panel de filtros: un botón "Filtros" que despliega la fila con Mes, Categoría y Cuenta */
+function filtersPanel({ open, count, onToggle, items }) {
+  const label = `Filtros${count ? ` · ${count}` : ""} ${open ? "▴" : "▾"}`;
+  const toggle = iconChip("filter", label, open || count > 0, onToggle);
+  const nodes = [el("div", { class: "filter-row section-chips" }, [toggle])];
+  if (open) nodes.push(el("div", { class: "filter-row section-chips" }, items));
+  return nodes;
 }
 
 function buildShell() {

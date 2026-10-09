@@ -2,6 +2,8 @@
  * reports.js — Gasto mensual por categoría + control total de ahorro.
  */
 
+let reportsFiltersOpen = false;
+
 async function renderReports(root, params) {
   const monthKey = params.get("month") || DateUtil.monthKey();
   const fromF = params.get("from") || "";
@@ -50,11 +52,18 @@ async function renderReports(root, params) {
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Reportes")]));
   root.appendChild(sectionTabs(REPORTES_TABS, "/reports"));
-  root.appendChild(
-    el("div", { class: "card", style: "padding:12px;" }, [
-      filterBarChips({ monthKey, from: fromF, to: toF, todo: allTime, catF: "", accF, categories, accounts, accMap, withCategory: false, go }),
-    ])
-  );
+  const pinfo = { monthKey, from: fromF, to: toF, todo: allTime };
+  const accObj = accF ? accMap[accF] : null;
+  const count = (ranged || allTime ? 1 : 0) + (accF ? 1 : 0);
+  for (const node of filtersPanel({
+    open: reportsFiltersOpen,
+    count,
+    onToggle: () => { reportsFiltersOpen = !reportsFiltersOpen; Router.render(); },
+    items: [
+      iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, go)),
+      iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountSheet(accounts, accF, go)),
+    ],
+  })) root.appendChild(node);
 
   // ---- Comparación con el mes anterior (solo cuando el periodo es un mes) ----
   if (useMonth) {
