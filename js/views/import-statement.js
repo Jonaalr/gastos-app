@@ -74,11 +74,12 @@ function categoryOptions(categories) {
 }
 
 async function renderImportStatement(root, params) {
-  const [accounts, categories, allTx, memory] = await Promise.all([
+  const [accounts, categories, allTx, memory, installmentPlans] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("categories"),
     DB.getAll("transactions"),
     DB.getMeta("merchantCategories", {}),
+    DB.getMeta("installments", []),
   ]);
   const activeAccounts = accounts.filter((a) => !a.archived);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -174,6 +175,9 @@ async function renderImportStatement(root, params) {
     const manualTx = allTx.filter((t) => t.accountId === state.accountId && t.type === "expense" && !t.importKey);
     const seen = {};
 
+    // Compras a meses que el estado de cuenta muestra ("10 DE 12"): se sugieren y tú confirmas
+    state.installments = StatementImporters.installmentsFromMovements(movements).map((p) => ({ ...p, checked: true }));
+
     state.rows = movements
       .filter((m) => m.kind !== "payment")
       .map((m, i) => {
@@ -256,6 +260,9 @@ async function renderImportStatement(root, params) {
     }
     reviewBox.appendChild(summary);
 
+    const installBox = renderInstallmentBox();
+    if (installBox) reviewBox.appendChild(installBox);
+
     // Lista de movimientos
     const head = el("div", { class: "section-header" }, [
       el("div", { class: "section-heading" }, `Movimientos (${state.rows.length})`),
@@ -287,6 +294,34 @@ async function renderImportStatement(root, params) {
     reviewBox.appendChild(bar);
     bar.querySelector("#imp-go").addEventListener("click", doImport);
     refreshBar();
+  }
+
+  /** Tarjeta con las compras a meses detectadas: cuota en la que vas y total de cuotas */
+  function renderInstallmentBox() {
+    const plans = state.installments || [];
+    if (!plans.length) return null;
+    const items = plans.map((p) => {
+      const existing = installmentPlans.find((x) => x.key === p.key && x.accountId === state.accountId);
+      const remaining = p.total - p.current;
+      const status = existing
+        ? `Ya tienes este plan: se actualizará a la cuota ${p.current} de ${p.total}`
+        : `Nuevo plan: cuota ${p.current} de ${p.total}`;
+      const chk = el("input", { type: "checkbox" });
+      chk.checked = p.checked;
+      chk.addEventListener("change", () => { p.checked = chk.checked; });
+      return el("label", { class: "checkbox-row imp-plan" }, [
+        chk,
+        el("span", { style: "font-size:13px;" }, [
+          el("div", { style: "font-weight:600;" }, p.name),
+          el("div", { class: "field-hint" }, `${status} · ${Money.format(p.monthlyCents)} al mes · faltan ${remaining} ${remaining === 1 ? "cuota" : "cuotas"}`),
+        ]),
+      ]);
+    });
+    return el("div", { class: "card" }, [
+      el("div", { class: "section-heading", style: "margin-bottom:6px;" }, "Compras a meses detectadas"),
+      el("div", { class: "field-hint", style: "margin-bottom:8px;" }, "Las cuotas cuentan como gasto mensual. Marca las que quieras registrar."),
+      ...items,
+    ]);
   }
 
   function renderRow(row) {
@@ -424,6 +459,33 @@ async function renderImportStatement(root, params) {
         if (r.categoryId && !r.refund) mem[StatementImporters.merchantKey(r.m.description)] = r.categoryId;
       }
       await DB.setMeta("merchantCategories", mem);
+
+      // Compras a meses confirmadas: crear el plan o avanzar su cuota actual
+      const checkedPlans = (state.installments || []).filter((p) => p.checked);
+      if (checkedPlans.length) {
+        const plans = [...(await DB.getMeta("installments", []))];
+        for (const p of checkedPlans) {
+          const existing = plans.find((x) => x.key === p.key && x.accountId === state.accountId);
+          if (existing) {
+            existing.totalMonths = p.total;
+            existing.monthlyCents = p.monthlyCents;
+            existing.paidMonths = Math.max(existing.paidMonths || 0, p.current);
+          } else {
+            plans.push({
+              id: uid(),
+              name: p.name,
+              key: p.key,
+              accountId: state.accountId,
+              totalMonths: p.total,
+              monthlyCents: p.monthlyCents,
+              totalCents: p.monthlyCents * p.total,
+              paidMonths: p.current,
+              createdAt: now,
+            });
+          }
+        }
+        await DB.setMeta("installments", plans);
+      }
 
       // Datos de la cuenta: últimos 4 dígitos (para reconocerla la próxima vez) y, si lo pediste, límite/corte/pago
       const account = await DB.get("accounts", state.accountId);

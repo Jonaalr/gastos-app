@@ -57,6 +57,27 @@ const StatementImporters = {
     }
     return null;
   },
+  /**
+   * Compras a meses que se ven en el estado de cuenta: "10 DE 12 MERCADO PAGO ..." significa
+   * cuota 10 de 12. Devuelve un plan por comercio con la cuota en la que vas y cuántas faltan.
+   */
+  installmentsFromMovements(movements) {
+    const plans = {};
+    for (const m of movements || []) {
+      if (m.kind !== "charge") continue;
+      const found = /(\d{1,2})\s+DE\s+(\d{1,2})\s+/i.exec(String(m.rawDescription || ""));
+      if (!found) continue;
+      const current = parseInt(found[1], 10);
+      const total = parseInt(found[2], 10);
+      if (!(total > 1 && current >= 1 && current <= total)) continue;
+      const key = StatementImporters.merchantKey(m.description);
+      if (!key) continue;
+      if (!plans[key] || current > plans[key].current) {
+        plans[key] = { key, name: m.description, current, total, monthlyCents: m.amountCents };
+      }
+    }
+    return Object.values(plans);
+  },
 };
 
 window.StatementImporters = StatementImporters;

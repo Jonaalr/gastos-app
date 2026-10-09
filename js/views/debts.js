@@ -22,13 +22,14 @@ function debtRemainingCents(d) {
 
 async function renderDebts(root) {
   const debts = await loadDebts();
+  const plans = await loadInstallments();
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Presupuestos")]));
   root.appendChild(sectionTabs(PRESUPUESTO_TABS, "/debts"));
 
-  if (debts.length > 0) {
-    const totalDebt = debts.reduce((s, d) => s + d.totalCents, 0);
-    const totalPaid = debts.reduce((s, d) => s + debtPaidCents(d), 0);
-    const totalRemaining = debts.reduce((s, d) => s + debtRemainingCents(d), 0);
+  if (debts.length > 0 || plans.length > 0) {
+    const totalDebt = debts.reduce((s, d) => s + d.totalCents, 0) + plans.reduce((s, p) => s + p.monthlyCents * p.totalMonths, 0);
+    const totalPaid = debts.reduce((s, d) => s + debtPaidCents(d), 0) + plans.reduce((s, p) => s + p.monthlyCents * p.paidMonths, 0);
+    const totalRemaining = debts.reduce((s, d) => s + debtRemainingCents(d), 0) + plans.reduce((s, p) => s + installmentRemainingCents(p), 0);
     root.appendChild(
       el("div", { class: "card" }, [
         el("div", { class: "card-title" }, "Falta por pagar en total"),
@@ -79,6 +80,7 @@ async function renderDebts(root) {
 
   card.appendChild(el("button", { class: "btn mt-8", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
   root.appendChild(card);
+  await renderInstallmentsCard(root);
 }
 
 /** Crear o editar una deuda (y revisar/borrar sus pagos). */
@@ -227,6 +229,181 @@ async function openDebtPayment(debt) {
     const d = debts.find((x) => x.id === debt.id);
     if (d) d.payments = [...(d.payments || []), { id: uid(), date, amountCents, note, accountId, transactionId }];
     await saveDebts(debts);
+    close();
+    Router.render();
+  });
+}
+
+/* ---------- Compras a meses ----------
+ * Cada compra a meses tiene cuota mensual, meses totales y meses ya pagados.
+ * Cada cuota se registra como gasto (lo que sale de tu cuenta cada mes).
+ * Se guardan en meta["installments"]. */
+
+async function loadInstallments() {
+  return DB.getMeta("installments", []);
+}
+async function saveInstallments(plans) {
+  return DB.setMeta("installments", plans);
+}
+function installmentRemainingCents(p) {
+  return p.monthlyCents * Math.max(0, p.totalMonths - p.paidMonths);
+}
+
+async function renderInstallmentsCard(root) {
+  const [plans, accounts] = await Promise.all([loadInstallments(), DB.getAll("accounts")]);
+  const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
+  const card = el("div", { class: "card goals-card" }, [el("div", { class: "card-title" }, "Compras a meses")]);
+  if (plans.length === 0) {
+    card.appendChild(el("div", { class: "muted" }, "Aquí ves en qué cuota vas de cada compra a meses y cuánto te falta. También te lo sugerimos al importar tu estado de cuenta."));
+  }
+  for (const p of plans) {
+    const remaining = installmentRemainingCents(p);
+    const done = p.paidMonths >= p.totalMonths;
+    const pct = Math.min(100, Math.round((p.paidMonths / p.totalMonths) * 100));
+    const left = p.totalMonths - p.paidMonths;
+    const acc = accMap[p.accountId];
+    const info = done
+      ? "Liquidada"
+      : `Cuota ${p.paidMonths + 1} de ${p.totalMonths} · te quedan ${left} · ${Money.format(p.monthlyCents)} al mes${acc ? ` · ${acc.name}` : ""}`;
+    card.appendChild(
+      el("div", { class: "goal-row" }, [
+        el("div", { class: "goal-head" }, [
+          el("div", { class: "goal-name" }, p.name),
+          el("div", { class: "goal-amount" }, `Faltan ${Money.format(remaining)}`),
+        ]),
+        el("div", { class: "goal-bar" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
+        el("div", { class: "goal-meta" }, [
+          el("span", {}, info),
+          el("div", { class: "goal-actions" }, [
+            ...(done ? [] : [el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentPayment(p) }, "Registrar cuota")]),
+            el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentSheet(p) }, "Editar"),
+          ]),
+        ]),
+      ])
+    );
+  }
+  card.appendChild(el("button", { class: "btn mt-8", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
+  root.appendChild(card);
+}
+
+/** Crear o editar una compra a meses. */
+async function openInstallmentSheet(existing) {
+  const accounts = (await DB.getAll("accounts"))
+    .filter((a) => !a.archived && a.type !== "savings")
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  if (accounts.length === 0) {
+    toast("No puedes registrar una compra a meses porque no tienes cuentas. Crea una en Ajustes → Cuentas.", "error");
+    return;
+  }
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const sheet = el("div", { class: "sheet" });
+  backdrop.appendChild(sheet);
+  document.body.appendChild(backdrop);
+  const close = () => backdrop.remove();
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+
+  const accOptions = accounts
+    .map((a) => `<option value="${a.id}" ${existing && existing.accountId === a.id ? "selected" : ""}>${escapeHtml(a.name)}</option>`)
+    .join("");
+  sheet.innerHTML = `
+    <div class="sheet-header"><h2>${existing ? "Editar compra a meses" : "Compra a meses"}</h2><button class="sheet-close" data-close>✕</button></div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="i-name" placeholder="Ej. Laptop, Mercado Pago" value="${existing ? escapeHtml(existing.name) : ""}"></div>
+    <div class="form-group"><label>¿En qué tarjeta o cuenta se cobra?</label><select id="i-account">${accOptions}</select></div>
+    <div class="form-group"><label>Monto total de la compra (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="i-total" value="${existing ? Money.toInputValue(existing.monthlyCents * existing.totalMonths) : ""}"></div>
+    <div class="form-group"><label>Número de meses</label><input type="number" inputmode="numeric" step="1" id="i-months" value="${existing ? existing.totalMonths : ""}"></div>
+    <div class="form-group"><label>Cuota mensual (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="i-monthly" value="${existing ? Money.toInputValue(existing.monthlyCents) : ""}"><div class="field-hint">Si la dejas vacía, la calculo: total ÷ meses.</div></div>
+    <div class="form-group"><label>¿Cuántas cuotas ya pagaste?</label><input type="number" inputmode="numeric" step="1" id="i-paid" value="${existing ? existing.paidMonths : 0}"></div>
+    <button class="btn" id="i-save">Guardar</button>
+    ${existing ? `<button class="btn btn-secondary mt-8" id="i-delete" style="color:var(--danger);">Eliminar compra</button>` : ""}
+  `;
+  sheet.querySelector("[data-close]").addEventListener("click", close);
+
+  sheet.querySelector("#i-save").addEventListener("click", async () => {
+    const name = sheet.querySelector("#i-name").value.trim();
+    const accountId = parseInt(sheet.querySelector("#i-account").value, 10);
+    const totalCents = Money.toCents(sheet.querySelector("#i-total").value);
+    const totalMonths = parseInt(sheet.querySelector("#i-months").value, 10);
+    const paidMonths = parseInt(sheet.querySelector("#i-paid").value || "0", 10);
+    let monthlyCents = Money.toCents(sheet.querySelector("#i-monthly").value);
+    if (!name) { toast("Ponle un nombre a la compra", "error"); return; }
+    if (!(totalCents > 0)) { toast("Pon el monto total de la compra", "error"); return; }
+    if (!(totalMonths >= 2)) { toast("Pon al menos 2 meses", "error"); return; }
+    if (!(paidMonths >= 0 && paidMonths <= totalMonths)) { toast("Las cuotas pagadas deben estar entre 0 y el número de meses", "error"); return; }
+    if (!monthlyCents) monthlyCents = Math.round(totalCents / totalMonths);
+
+    const plans = await loadInstallments();
+    if (existing) {
+      const i = plans.findIndex((p) => p.id === existing.id);
+      if (i >= 0) plans[i] = { ...plans[i], name, accountId, totalMonths, monthlyCents, paidMonths, key: StatementImporters.merchantKey(name) };
+    } else {
+      plans.push({ id: uid(), name, accountId, totalMonths, monthlyCents, paidMonths, key: StatementImporters.merchantKey(name), createdAt: new Date().toISOString() });
+    }
+    await saveInstallments(plans);
+    close();
+    Router.render();
+  });
+
+  const del = sheet.querySelector("#i-delete");
+  if (del) {
+    del.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar la compra "${existing.name}"? Las cuotas que ya registraste como gasto no cambian.`)) return;
+      await saveInstallments((await loadInstallments()).filter((p) => p.id !== existing.id));
+      close();
+      Router.render();
+    });
+  }
+}
+
+/** Registrar una cuota: es un gasto normal en la cuenta/tarjeta y avanza la cuota en que vas. */
+async function openInstallmentPayment(plan) {
+  const accounts = (await DB.getAll("accounts"))
+    .filter((a) => !a.archived && a.type !== "savings")
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const sheet = el("div", { class: "sheet" });
+  backdrop.appendChild(sheet);
+  document.body.appendChild(backdrop);
+  const close = () => backdrop.remove();
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+  const accOptions = accounts
+    .map((a) => `<option value="${a.id}" ${a.id === plan.accountId ? "selected" : ""}>${escapeHtml(a.name)}</option>`)
+    .join("");
+  const nextCuota = plan.paidMonths + 1;
+  sheet.innerHTML = `
+    <div class="sheet-header"><h2>Cuota ${nextCuota} de ${plan.totalMonths}</h2><button class="sheet-close" data-close>✕</button></div>
+    <p class="muted">${escapeHtml(plan.name)} · ${Money.format(plan.monthlyCents)}</p>
+    <div class="form-group"><label>Monto de la cuota (MXN)</label><input type="number" inputmode="decimal" step="0.01" id="c-amount" value="${Money.toInputValue(plan.monthlyCents)}"></div>
+    <div class="form-group"><label>Fecha</label><input type="date" id="c-date" value="${DateUtil.todayISO()}"></div>
+    <div class="form-group"><label>Cuenta o tarjeta</label><select id="c-account">${accOptions}</select></div>
+    <p class="muted" style="font-size:12px;">Se registra como gasto y avanza a la cuota ${nextCuota + 1}. Si luego importas el estado de cuenta con esa misma cuota, quita una de las dos para no duplicarla.</p>
+    <button class="btn" id="c-save">Registrar cuota</button>
+  `;
+  sheet.querySelector("[data-close]").addEventListener("click", close);
+  sheet.querySelector("#c-save").addEventListener("click", async () => {
+    const amountCents = Money.toCents(sheet.querySelector("#c-amount").value);
+    if (amountCents <= 0) { toast("Pon el monto de la cuota", "error"); return; }
+    const date = sheet.querySelector("#c-date").value || DateUtil.todayISO();
+    const accountId = parseInt(sheet.querySelector("#c-account").value, 10);
+    await saveTransactionWithBalances({
+      type: "expense",
+      amountCents,
+      accountId,
+      toAccountId: null,
+      categoryId: null,
+      merchant: plan.name,
+      note: `Cuota ${nextCuota} de ${plan.totalMonths}`,
+      date,
+      isRecurring: false,
+      recurringDay: null,
+      attachment: null,
+      split: null,
+      source: "installment",
+      createdAt: new Date().toISOString(),
+    }, null);
+    const plans = await loadInstallments();
+    const p = plans.find((x) => x.id === plan.id);
+    if (p) p.paidMonths = Math.min(p.totalMonths, p.paidMonths + 1);
+    await saveInstallments(plans);
     close();
     Router.render();
   });
