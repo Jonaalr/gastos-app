@@ -71,6 +71,8 @@ async function renderDebts(root, params) {
       for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
     }
   }
+  // Línea que separa las deudas/tarjetas de las compras a meses
+  if (showDebts && showPlans) root.appendChild(el("div", { style: "height:1px;background:var(--border);margin:22px 0 0;" }));
   if (showPlans) await renderInstallmentsCard(root);
 }
 
