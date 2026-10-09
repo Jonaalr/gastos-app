@@ -65,35 +65,53 @@ async function renderReports(root, params) {
     ],
   })) root.appendChild(node);
 
-  // ---- Comparación con el mes anterior (solo cuando el periodo es un mes) ----
+  // ---- Gasto de los últimos 6 meses (solo cuando el periodo es un mes) ----
   if (useMonth) {
     const [py, pm] = monthKey.split("-").map(Number);
-    const prevKey = pm === 1 ? `${py - 1}-12` : `${py}-${String(pm - 1).padStart(2, "0")}`;
-    const prevTotal = allTx
-      .filter((t) => DateUtil.monthKey(t.date) === prevKey && t.type === "expense" && (!accF || String(t.accountId) === accF))
-      .reduce((sum, t) => sum + myShareCents(t), 0);
-    const diff = totalExpense - prevTotal;
-    const prevLabel = new Date(py, (pm === 1 ? 12 : pm - 1) - 1, 1).toLocaleDateString("es-MX", { month: "long" });
-    const compareCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Comparado con " + prevLabel)]);
-    if (prevTotal === 0 && totalExpense === 0) {
-      compareCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en ninguno de los dos meses."));
+    const keys = [];
+    for (let i = 5; i >= 0; i--) keys.push(DateUtil.monthKey(new Date(py, pm - 1 - i, 1)));
+    const totals = keys.map((k) =>
+      allTx
+        .filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === k && (!accF || String(t.accountId) === accF))
+        .reduce((sum, t) => sum + myShareCents(t), 0)
+    );
+    const cur = totals[5];
+    const prevTotal = totals[4];
+    const diff = cur - prevTotal;
+    const prevLabel = MESES_ES[(pm === 1 ? 12 : pm - 1) - 1];
+    const maxV = Math.max(1, ...totals);
+    const barW = 34;
+    const gap = 14;
+    const baseY = 128;
+    const maxH = 96;
+    const compact = (cents) => {
+      const pesos = Math.round(cents / 100);
+      return pesos >= 1000 ? `$${(pesos / 1000).toFixed(1)}k` : `$${pesos}`;
+    };
+    const bars = totals.map((v, i) => {
+      const h = Math.max(2, Math.round((v / maxV) * maxH));
+      const x = 10 + i * (barW + gap);
+      const isCur = i === 5;
+      const mLabel = MESES_ES[Number(keys[i].split("-")[1]) - 1].slice(0, 3);
+      return `<rect x="${x}" y="${baseY - h}" width="${barW}" height="${h}" rx="6" fill="${isCur ? "#16A34A" : "#d1d5db"}"/>`
+        + `<text x="${x + barW / 2}" y="${baseY - h - 5}" text-anchor="middle" font-size="10" fill="#3f3f46">${compact(v)}</text>`
+        + `<text x="${x + barW / 2}" y="${baseY + 16}" text-anchor="middle" font-size="11" fill="${isCur ? "#15803d" : "#8e8e93"}" font-weight="${isCur ? 700 : 400}">${mLabel}</text>`;
+    }).join("");
+    const chartCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Gasto de los últimos 6 meses")]);
+    chartCard.appendChild(el("div", { html: `<svg viewBox="0 0 ${10 * 2 + 6 * barW + 5 * gap} 150" width="100%" role="img" aria-label="Gasto de los últimos 6 meses">${bars}</svg>` }));
+    if (prevTotal === 0 && cur === 0) {
+      chartCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en estos meses."));
     } else if (prevTotal === 0) {
-      compareCard.appendChild(el("div", { class: "muted" }, `No hay gastos registrados en ${prevLabel}, así que no hay con qué comparar.`));
+      chartCard.appendChild(el("div", { class: "muted", style: "margin-top:8px;" }, `No hay gastos en ${prevLabel} para comparar.`));
     } else {
       const pct = Math.round((Math.abs(diff) / prevTotal) * 100);
       const up = diff > 0;
-      compareCard.appendChild(
-        el("div", { class: "btn-row" }, [
-          el("div", {}, [el("div", { class: "muted" }, prevLabel), el("div", { class: "amount" }, Money.format(prevTotal))]),
-          el("div", {}, [el("div", { class: "muted" }, "Este mes"), el("div", { class: "amount" }, Money.format(totalExpense))]),
-        ])
-      );
-      compareCard.appendChild(
-        el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : up ? "warn" : "ok"}` },
-          diff === 0 ? "Igual que el mes anterior" : `${up ? "▲ Gastaste" : "▼ Gastaste"} ${Money.format(Math.abs(diff))} ${up ? "más" : "menos"} (${pct}%)`)
+      chartCard.appendChild(
+        el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : up ? "warn" : "ok"}`, style: "margin-top:8px;" },
+          diff === 0 ? `Igual que ${prevLabel}` : `${up ? "▲ Gastaste" : "▼ Gastaste"} ${Money.format(Math.abs(diff))} ${up ? "más" : "menos"} que ${prevLabel} (${pct}%)`)
       );
     }
-    root.appendChild(compareCard);
+    root.appendChild(chartCard);
   }
 
   // ---- Gasto por categoría (del periodo elegido) ----
