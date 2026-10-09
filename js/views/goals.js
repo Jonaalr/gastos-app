@@ -66,7 +66,7 @@ async function openGoalSheet(existing) {
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
 
   const accOptions = [`<option value="">Aportes manuales</option>`]
-    .concat(accounts.map((a) => `<option value="${a.id}" ${existing && existing.accountId === a.id ? "selected" : ""}>${escapeHtml(a.name)}</option>`))
+    .concat(accounts.sort(accountPickerCompare).map((a) => `<option value="${a.id}" ${existing && existing.accountId === a.id ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`))
     .join("");
 
   sheet.innerHTML = `

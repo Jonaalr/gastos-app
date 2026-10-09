@@ -67,8 +67,8 @@ async function renderTransactions(root, params) {
   catSel.addEventListener("change", () => goTo({ cat: catSel.value }));
   const accSel = el("select", {}, [
     el("option", { value: "" }, "Todas las cuentas"),
-    ...accounts.filter((a) => !a.archived).sort((a, b) => a.name.localeCompare(b.name, "es")).map((a) =>
-      el("option", { value: String(a.id) }, a.name)
+    ...accounts.filter((a) => !a.archived).sort(accountPickerCompare).map((a) =>
+      el("option", { value: String(a.id) }, accountPickerLabel(a))
     ),
   ]);
   accSel.value = accF;

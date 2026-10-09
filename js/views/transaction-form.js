@@ -101,8 +101,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     return accounts
       .filter((a) => (type === "expense" ? a.type !== "savings" : type === "income" ? a.type !== "credit" : true))
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, "es"))
-      .map((a) => `<option value="${a.id}" ${a.id === selectedId ? "selected" : ""}>${a.name}</option>`)
+      .sort(accountPickerCompare)
+      .map((a) => `<option value="${a.id}" ${a.id === selectedId ? "selected" : ""}>${accountPickerLabel(a)}</option>`)
       .join("");
   }
 

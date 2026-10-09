@@ -166,7 +166,7 @@ async function openDebtPayment(debt) {
   const remaining = debtRemainingCents(debt);
   const accounts = (await DB.getAll("accounts"))
     .filter((a) => !a.archived && a.type !== "savings")
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    .sort(accountPickerCompare);
   if (accounts.length === 0) {
     toast("No puedes registrar el abono porque no tienes cuentas. Crea una en Ajustes → Cuentas.", "error");
     return;
@@ -178,7 +178,7 @@ async function openDebtPayment(debt) {
   const close = () => backdrop.remove();
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
   const suggested = debt.monthlyCents > 0 ? Math.min(debt.monthlyCents, remaining) : remaining;
-  const accOptions = accounts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+  const accOptions = accounts.sort(accountPickerCompare).map((a) => `<option value="${a.id}">${escapeHtml(accountPickerLabel(a))}</option>`).join("");
   sheet.innerHTML = `
     <div class="sheet-header"><h2>Abono a la deuda</h2><button class="sheet-close" data-close>✕</button></div>
     <p class="muted">${escapeHtml(debt.name)} · te faltan ${Money.format(remaining)}</p>
@@ -290,7 +290,7 @@ async function renderInstallmentsCard(root) {
 async function openInstallmentSheet(existing) {
   const accounts = (await DB.getAll("accounts"))
     .filter((a) => !a.archived && a.type !== "savings")
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    .sort(accountPickerCompare);
   if (accounts.length === 0) {
     toast("No puedes registrar una compra a meses porque no tienes cuentas. Crea una en Ajustes → Cuentas.", "error");
     return;
@@ -303,7 +303,7 @@ async function openInstallmentSheet(existing) {
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
 
   const accOptions = accounts
-    .map((a) => `<option value="${a.id}" ${existing && existing.accountId === a.id ? "selected" : ""}>${escapeHtml(a.name)}</option>`)
+    .map((a) => `<option value="${a.id}" ${existing && existing.accountId === a.id ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
     .join("");
   sheet.innerHTML = `
     <div class="sheet-header"><h2>${existing ? "Editar compra a meses" : "Compra a meses"}</h2><button class="sheet-close" data-close>✕</button></div>
@@ -358,7 +358,7 @@ async function openInstallmentSheet(existing) {
 async function openInstallmentPayment(plan) {
   const accounts = (await DB.getAll("accounts"))
     .filter((a) => !a.archived && a.type !== "savings")
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    .sort(accountPickerCompare);
   const backdrop = el("div", { class: "sheet-backdrop" });
   const sheet = el("div", { class: "sheet" });
   backdrop.appendChild(sheet);
@@ -366,7 +366,7 @@ async function openInstallmentPayment(plan) {
   const close = () => backdrop.remove();
   backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
   const accOptions = accounts
-    .map((a) => `<option value="${a.id}" ${a.id === plan.accountId ? "selected" : ""}>${escapeHtml(a.name)}</option>`)
+    .map((a) => `<option value="${a.id}" ${a.id === plan.accountId ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
     .join("");
   const nextCuota = plan.paidMonths + 1;
   sheet.innerHTML = `

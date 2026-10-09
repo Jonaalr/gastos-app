@@ -219,3 +219,18 @@ document.addEventListener("focusin", (e) => {
   if (t.value === "0.00" || t.value === "0") t.value = "";
   setTimeout(() => { try { t.select(); } catch (err) { /* algunos navegadores no permiten seleccionar */ } }, 0);
 });
+
+/* ---- Cuentas en los menús desplegables: "Nu TDD (Débito)", agrupadas por tipo ---- */
+const ACCOUNT_TYPE_NAMES = { credit: "Crédito", debit: "Débito", cash: "Efectivo", savings: "Rendimientos" };
+const ACCOUNT_TYPE_ORDER = { credit: 0, debit: 1, cash: 2, savings: 3 };
+
+function accountPickerLabel(a) {
+  return `${a.name} (${ACCOUNT_TYPE_NAMES[a.type] || "Cuenta"})`;
+}
+
+/** Orden: primero crédito, luego débito, efectivo y rendimientos; dentro de cada grupo, alfabético */
+function accountPickerCompare(a, b) {
+  const ga = ACCOUNT_TYPE_ORDER[a.type] ?? 9;
+  const gb = ACCOUNT_TYPE_ORDER[b.type] ?? 9;
+  return ga - gb || a.name.localeCompare(b.name, "es");
+}

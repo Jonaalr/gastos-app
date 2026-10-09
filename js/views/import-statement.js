@@ -81,7 +81,7 @@ async function renderImportStatement(root, params) {
     DB.getMeta("merchantCategories", {}),
     DB.getMeta("installments", []),
   ]);
-  const activeAccounts = accounts.filter((a) => !a.archived);
+  const activeAccounts = accounts.filter((a) => !a.archived).sort(accountPickerCompare);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   let catOptions = categoryOptions(expenseCategories);
 
@@ -111,7 +111,7 @@ async function renderImportStatement(root, params) {
   }
 
   // ---------- Paso 1: cuenta + archivo ----------
-  const accountSelect = el("select", { id: "imp-account" }, activeAccounts.map((a) => el("option", { value: a.id }, `${a.name}${a.type === "credit" ? " (crédito)" : ""}`)));
+  const accountSelect = el("select", { id: "imp-account" }, activeAccounts.map((a) => el("option", { value: a.id }, accountPickerLabel(a))));
   accountSelect.value = state.accountId;
   const fileInput = el("input", { type: "file", id: "imp-file", accept: "application/pdf,.pdf", style: "display:none;" });
   const status = el("div", { class: "field-hint", style: "margin-top:10px;" });
