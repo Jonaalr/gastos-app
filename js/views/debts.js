@@ -54,60 +54,57 @@ async function renderDebts(root, params) {
     );
   }
 
-  const card = el("div", { class: "card goals-card" }, [el("div", { class: "card-title" }, "Mis deudas")]);
-  if (debts.length === 0 && showDebts) {
-    card.appendChild(el("div", { class: "muted" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar."));
+  if (showDebts && debts.length === 0) {
+    root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar.")]));
   }
-
-  for (const d of debts) {
-    const paid = debtPaidCents(d);
-    const remaining = debtRemainingCents(d);
-    const pct = d.totalCents > 0 ? Math.min(100, Math.round((paid / d.totalCents) * 100)) : 0;
-    const done = remaining <= 0;
-    const payments = (d.payments || []).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    let info = done ? "Liquidada" : `${pct}% pagado`;
-    if (!done && d.monthlyCents > 0) {
-      const months = Math.ceil(remaining / d.monthlyCents);
-      info += ` · ${months} ${months === 1 ? "pago" : "pagos"} de ${Money.format(d.monthlyCents)} al mes`;
-    }
-
-    card.appendChild(
-      tapRow([
-        el("div", { class: "goal-head" }, [
-          el("div", { class: "goal-name" }, d.name),
-          el("div", { class: "goal-amount" }, `Faltan ${Money.format(remaining)}`),
-        ]),
-        el("div", { class: "goal-bar" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
-        el("div", { class: "goal-meta" }, [el("span", {}, info)]),
-        payments.length
-          ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" },
-              `Último pago: ${DateUtil.formatShort(payments[0].date)} por ${Money.format(payments[0].amountCents)}`)
-          : null,
-      ], [
-        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtPayment(d) }, "Abono a la deuda"),
-        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openDebtSheet(d) }, "Editar"),
-      ])
-    );
-  }
-
   if (showDebts) {
-    root.appendChild(el("button", { class: "btn", style: "margin-bottom:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
-    root.appendChild(card);
+    root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
+    for (const d of debts) root.appendChild(debtCard(d));
   }
   if (showPlans) await renderInstallmentsCard(root);
 }
 
-/** Fila compacta: al tocarla se despliegan sus botones (no los clics en los botones). */
-function tapRow(parts, detailNodes) {
-  const detail = el("div", { class: "goal-actions", style: "display:none;margin-top:10px;" }, detailNodes);
-  const row = el("div", { class: "goal-row goal-tap" }, [...parts, detail]);
-  row.addEventListener("click", (e) => {
-    if (e.target.closest("button, input, a")) return;
-    const open = detail.style.display === "none";
-    detail.style.display = open ? "flex" : "none";
-    row.classList.toggle("open", open);
-  });
-  return row;
+/** Tarjeta de una deuda (mismo formato que Préstamos). Al tocarla abre su detalle. */
+function debtCard(d) {
+  const paid = debtPaidCents(d);
+  const remaining = debtRemainingCents(d);
+  const pct = d.totalCents > 0 ? Math.min(100, Math.round((paid / d.totalCents) * 100)) : 0;
+  const done = remaining <= 0;
+  let info = done ? "Liquidada" : `${pct}% pagado`;
+  if (!done && d.monthlyCents > 0) {
+    const months = Math.ceil(remaining / d.monthlyCents);
+    info += ` · ${months} ${months === 1 ? "pago" : "pagos"} de ${Money.format(d.monthlyCents)} al mes`;
+  }
+  return el("div", { class: "card", style: "margin-top:12px;cursor:pointer;", onclick: () => openDebtDetailSheet(d) }, [
+    el("div", { class: "flex-between" }, [
+      el("div", {}, [el("div", { class: "title", style: "font-weight:700;" }, d.name), el("div", { class: "meta muted", style: "font-size:12px;" }, info)]),
+      el("strong", { style: "white-space:nowrap;margin-left:10px;" }, `Faltan ${Money.format(remaining)}`),
+    ]),
+    el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
+    el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Pagado ${Money.format(paid)} de ${Money.format(d.totalCents)}`),
+  ]);
+}
+
+/** Detalle de una deuda: resumen, acciones y pagos. */
+function openDebtDetailSheet(d) {
+  const { sheet, close } = loanSheet(d.name);
+  const line = (t, v) => el("div", { class: "list-item" }, [el("div", { class: "main" }, [el("div", { class: "title" }, t)]), el("div", {}, v)]);
+  const payments = (d.payments || []).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  sheet.appendChild(el("p", { class: "muted", style: "font-size:14px;margin-top:0;" },
+    `Total ${Money.format(d.totalCents)}${d.monthlyCents ? ` · pago mensual ${Money.format(d.monthlyCents)}` : ""}`));
+  sheet.appendChild(el("div", { class: "card", style: "margin:12px 0;" }, [
+    line("Pagado", Money.format(debtPaidCents(d))),
+    line("Falta por pagar", el("strong", {}, Money.format(debtRemainingCents(d)))),
+  ]));
+  sheet.appendChild(el("button", { class: "btn", onclick: () => { close(); openDebtPayment(d); } }, "Abono a la deuda"));
+  sheet.appendChild(el("button", { class: "btn btn-secondary mt-8", onclick: () => { close(); openDebtSheet(d); } }, "Editar deuda"));
+  sheet.appendChild(el("div", { class: "section-heading", style: "margin:14px 0 6px;" }, `Pagos (${payments.length})`));
+  if (payments.length === 0) sheet.appendChild(el("div", { class: "muted", style: "font-size:13px;" }, "Todavía no hay pagos registrados."));
+  for (const p of payments) {
+    sheet.appendChild(el("div", { class: "list-item" }, [
+      el("div", { class: "main" }, [el("div", { class: "title" }, Money.format(p.amountCents)), el("div", { class: "meta" }, `${DateUtil.formatLong(p.date)}${p.note ? ` · ${p.note}` : ""}`)]),
+    ]));
+  }
 }
 
 /** Crear o editar una deuda (y revisar/borrar sus pagos). */
@@ -287,9 +284,9 @@ function installmentRemainingCents(p) {
 async function renderInstallmentsCard(root) {
   const [plans, accounts] = await Promise.all([loadInstallments(), DB.getAll("accounts")]);
   const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
-  const card = el("div", { class: "card goals-card" }, [el("div", { class: "card-title" }, "Compras a meses")]);
+  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
   if (plans.length === 0) {
-    card.appendChild(el("div", { class: "muted" }, "Aquí ves en qué cuota vas de cada compra a meses y cuánto te falta. También te lo sugerimos al importar tu estado de cuenta."));
+    root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Aquí ves en qué cuota vas de cada compra a meses y cuánto te falta. También te lo sugerimos al importar tu estado de cuenta.")]));
   }
   for (const p of plans) {
     const remaining = installmentRemainingCents(p);
@@ -300,22 +297,32 @@ async function renderInstallmentsCard(root) {
     const info = done
       ? "Liquidada"
       : `Cuota ${p.paidMonths + 1} de ${p.totalMonths} · te quedan ${left} · ${Money.format(p.monthlyCents)} al mes${acc ? ` · ${acc.name}` : ""}`;
-    card.appendChild(
-      tapRow([
-        el("div", { class: "goal-head" }, [
-          el("div", { class: "goal-name" }, p.name),
-          el("div", { class: "goal-amount" }, `Faltan ${Money.format(remaining)}`),
+    root.appendChild(
+      el("div", { class: "card", style: "margin-top:12px;cursor:pointer;", onclick: () => openInstallmentDetailSheet(p) }, [
+        el("div", { class: "flex-between" }, [
+          el("div", {}, [el("div", { class: "title", style: "font-weight:700;" }, p.name), el("div", { class: "meta muted", style: "font-size:12px;" }, info)]),
+          el("strong", { style: "white-space:nowrap;margin-left:10px;" }, `Faltan ${Money.format(remaining)}`),
         ]),
-        el("div", { class: "goal-bar" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
-        el("div", { class: "goal-meta" }, [el("span", {}, info)]),
-      ], [
-        ...(done ? [] : [el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentPayment(p) }, "Registrar cuota")]),
-        el("button", { class: "btn btn-secondary btn-sm", onclick: () => openInstallmentSheet(p) }, "Editar"),
+        el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
+        el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Pagado ${Money.format(p.monthlyCents * p.paidMonths)} de ${Money.format(p.monthlyCents * p.totalMonths)}`),
       ])
     );
   }
-  root.appendChild(el("button", { class: "btn", style: "margin-bottom:12px;", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
-  root.appendChild(card);
+}
+
+/** Detalle de una compra a meses: resumen y acciones. */
+function openInstallmentDetailSheet(p) {
+  const done = p.paidMonths >= p.totalMonths;
+  const { sheet, close } = loanSheet(p.name);
+  const line = (t, v) => el("div", { class: "list-item" }, [el("div", { class: "main" }, [el("div", { class: "title" }, t)]), el("div", {}, v)]);
+  sheet.appendChild(el("p", { class: "muted", style: "font-size:14px;margin-top:0;" },
+    `${Money.format(p.monthlyCents)} al mes · ${p.totalMonths} cuotas`));
+  sheet.appendChild(el("div", { class: "card", style: "margin:12px 0;" }, [
+    line("Cuotas pagadas", `${p.paidMonths} de ${p.totalMonths}`),
+    line("Falta por pagar", el("strong", {}, Money.format(installmentRemainingCents(p)))),
+  ]));
+  if (!done) sheet.appendChild(el("button", { class: "btn", onclick: () => { close(); openInstallmentPayment(p); } }, "Registrar cuota"));
+  sheet.appendChild(el("button", { class: "btn btn-secondary mt-8", onclick: () => { close(); openInstallmentSheet(p); } }, "Editar compra"));
 }
 
 /** Crear o editar una compra a meses. */
