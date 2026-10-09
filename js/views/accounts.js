@@ -31,13 +31,14 @@ function nextDayLabel(day) {
 
 /** Filtro seleccionado en la pantalla de cuentas (se conserva mientras la app esté abierta) */
 let accountsFilter = "all";
+let accountsFilterOpen = false; // el chip de filtro se despliega al tocarlo
 
 const ACCOUNT_FILTERS = [
-  { id: "all", label: "Todas" },
-  { id: "cash", label: "Efectivo" },
-  { id: "debit", label: "Débito" },
-  { id: "credit", label: "Crédito" },
-  { id: "savings", label: "Rendimientos" },
+  { id: "all", label: "Todas", icon: "filter" },
+  { id: "cash", label: "Efectivo", icon: "banknote" },
+  { id: "debit", label: "Débito", icon: "bank" },
+  { id: "credit", label: "Crédito", icon: "card" },
+  { id: "savings", label: "Rendimientos", icon: "trend" },
 ];
 
 async function renderAccounts(root) {
@@ -55,13 +56,32 @@ async function renderAccounts(root) {
   root.appendChild(sectionTabs(DINERO_TABS, "/accounts"));
 
   root.appendChild(
-    el(
-      "div",
-      { class: "filter-row one-line" },
-      ACCOUNT_FILTERS.map((f) =>
-        el("button", { class: `chip ${accountsFilter === f.id ? "on" : ""}`, "data-filter": f.id, onclick: () => { accountsFilter = f.id; Router.render(); } }, f.label)
-      )
-    )
+    el("div", { class: "filter-row section-chips" }, [
+      // Chip actual: al tocarlo se despliegan los demás filtros
+      el("button", {
+        class: "chip on",
+        type: "button",
+        "data-filter": accountsFilter,
+        "aria-expanded": accountsFilterOpen ? "true" : "false",
+        onclick: () => { accountsFilterOpen = !accountsFilterOpen; Router.render(); },
+      }, [
+        el("span", { class: "chip-icon", html: svgIcon(ACCOUNT_FILTERS.find((f) => f.id === accountsFilter).icon, 14) }),
+        el("span", {}, `${ACCOUNT_FILTERS.find((f) => f.id === accountsFilter).label} ${accountsFilterOpen ? "▴" : "▾"}`),
+      ]),
+      ...(accountsFilterOpen
+        ? ACCOUNT_FILTERS.filter((f) => f.id !== accountsFilter).map((f) =>
+            el("button", {
+              class: "chip",
+              type: "button",
+              "data-filter": f.id,
+              onclick: () => { accountsFilter = f.id; accountsFilterOpen = false; Router.render(); },
+            }, [
+              el("span", { class: "chip-icon", html: svgIcon(f.icon, 14) }),
+              el("span", {}, f.label),
+            ])
+          )
+        : []),
+    ])
   );
 
   const savingsAccounts = accounts.filter((a) => a.type === "savings" && a.annualRatePct);

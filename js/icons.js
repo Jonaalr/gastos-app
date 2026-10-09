@@ -27,6 +27,7 @@ const ICON_PATHS = {
   handshake: '<path d="M8 12l3 3 5-5M3 9l4-4 5 3 4-3 5 4-6 7-3-2-3 2z"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   filter: '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>',
+  trend: '<path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
   users: '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/>',
   flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
