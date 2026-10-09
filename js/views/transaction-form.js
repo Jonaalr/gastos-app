@@ -42,22 +42,9 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   });
 
   async function renderCategoryOptions(kind) {
-    const cats = (await DB.getAllByIndex("categories", "kind", kind)).filter((c) => !c.parentId);
-    const subByParent = {};
-    const allCats = await DB.getAllByIndex("categories", "kind", kind);
-    for (const c of allCats) {
-      if (c.parentId) {
-        subByParent[c.parentId] = subByParent[c.parentId] || [];
-        subByParent[c.parentId].push(c);
-      }
-    }
+    const cats = await DB.getAllByIndex("categories", "kind", kind);
     let html = `<option value="">Sin categoría</option>`;
-    for (const c of cats) {
-      html += `<option value="${c.id}">${categoryLabel(c)}</option>`;
-      for (const sub of subByParent[c.id] || []) {
-        html += `<option value="${sub.id}">&nbsp;&nbsp;↳ ${categoryLabel(sub)}</option>`;
-      }
-    }
+    for (const c of cats) html += `<option value="${c.id}">${categoryLabel(c)}</option>`;
     html += `<option value="__new__">+ Nueva categoría…</option>`;
     return html;
   }
@@ -78,12 +65,11 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       const kind = currentType === "income" ? "income" : "expense";
       sel.value = "";
       sel.dispatchEvent(new Event("change", { bubbles: true }));
-      openCategorySheet({
+      openCategoryEditSheet({
         kind,
         onSaved: async () => {
           await refreshCategoryOptions();
           const latest = (await DB.getAllByIndex("categories", "kind", kind))
-            .filter((c) => !c.parentId)
             .sort((a, b) => b.id - a.id)[0];
           const target = sheet.querySelector("#f-category");
           if (!target) return;

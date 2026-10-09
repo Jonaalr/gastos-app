@@ -38,29 +38,25 @@ async function renderSettings(root) {
     ])
   );
 
+  const SECTION_LINKS = [
+    ["/accounts", "card", "Cuentas", "Agregar, editar, archivar"],
+    ["/debts", "banknote", "Deudas y compras a meses", "Lo que debes y tus pagos a meses"],
+    ["/receivables", "handshake", "Préstamos y compartidos", "Lo que te deben"],
+    ["/budgets", "target", "Presupuestos", "Planes de gasto por categoría"],
+    ["/transactions", "list", "Movimientos", "Todos tus gastos e ingresos"],
+    ["/reports", "chart", "Informes", "Gastos por mes y categoría"],
+    ["/calendar", "calendar", "Pagos domiciliados", "Cargos que se repiten"],
+    ["/categories", "tag", "Categorías", "Agrega y cambia emojis"],
+    ["/import", "receipt", "Importar estado de cuenta", "Lee un PDF de tu banco"],
+  ];
   root.appendChild(
-    el("div", { class: "card" }, [
-      el("div", { class: "list-item", onclick: () => Router.navigate("/accounts") }, [
-        el("div", { class: "icon" }, iconNode("card")),
-        el("div", { class: "main" }, [el("div", { class: "title" }, "Cuentas"), el("div", { class: "meta" }, "Agregar, editar, archivar")]),
+    el("div", { class: "card" }, SECTION_LINKS.map(([path, icon, title, meta]) =>
+      el("div", { class: "list-item", style: "cursor:pointer;", onclick: () => Router.navigate(path) }, [
+        el("div", { class: "icon" }, iconNode(icon)),
+        el("div", { class: "main" }, [el("div", { class: "title" }, title), el("div", { class: "meta" }, meta)]),
         el("div", {}, "›"),
-      ]),
-      el("div", { class: "list-item", onclick: () => Router.navigate("/import") }, [
-        el("div", { class: "icon" }, iconNode("receipt")),
-        el("div", { class: "main" }, [el("div", { class: "title" }, "Importar estado de cuenta"), el("div", { class: "meta" }, "Lee un PDF de tu banco")]),
-        el("div", {}, "›"),
-      ]),
-      el("div", { class: "list-item", onclick: () => Router.navigate("/receivables") }, [
-        el("div", { class: "icon" }, iconNode("handshake")),
-        el("div", { class: "main" }, [el("div", { class: "title" }, "Préstamos y compartidos"), el("div", { class: "meta" }, "Lo que te deben")]),
-        el("div", {}, "›"),
-      ]),
-      el("div", { class: "list-item", onclick: () => Router.navigate("/categories") }, [
-        el("div", { class: "icon" }, iconNode("tag")),
-        el("div", { class: "main" }, [el("div", { class: "title" }, "Categorías"), el("div", { class: "meta" }, "Predeterminadas y personalizadas")]),
-        el("div", {}, "›"),
-      ]),
-    ])
+      ])
+    ))
   );
 
   root.appendChild(

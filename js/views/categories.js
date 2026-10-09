@@ -4,69 +4,44 @@
 
 async function renderCategories(root) {
   const categories = await DB.getAll("categories");
-  const expenseCats = categories.filter((c) => c.kind === "expense" && !c.parentId);
-  const incomeCats = categories.filter((c) => c.kind === "income" && !c.parentId);
-  const subOf = (id) => categories.filter((c) => c.parentId === id);
+  const expenseCats = categories.filter((c) => c.kind === "expense");
+  const incomeCats = categories.filter((c) => c.kind === "income");
 
   root.appendChild(el("div", { class: "topbar" }, [el("h1", {}, "Categorías")]));
 
   root.appendChild(el("div", { class: "section-title" }, "Gastos"));
-  root.appendChild(renderCategoryList(expenseCats, subOf));
+  root.appendChild(renderCategoryList(expenseCats));
+  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openCategoryEditSheet({ kind: "expense", onSaved: () => Router.render() }) }, "+ Categoría de gasto"));
 
-  root.appendChild(el("div", { class: "section-title" }, "Ingresos"));
-  root.appendChild(renderCategoryList(incomeCats, subOf));
-
-  root.appendChild(
-    el("div", { class: "btn-row mt-8" }, [
-      el("button", { class: "btn btn-secondary", onclick: () => openCategorySheet({ kind: "expense", onSaved: () => Router.render() }) }, "+ Categoría de gasto"),
-      el("button", { class: "btn btn-secondary", onclick: () => openCategorySheet({ kind: "income", onSaved: () => Router.render() }) }, "+ Categoría de ingreso"),
-    ])
-  );
-
-  root.querySelectorAll("[data-edit-cat]").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const cat = await DB.get("categories", parseInt(btn.dataset.editCat, 10));
-      openCategorySheet({ existing: cat, onSaved: () => Router.render() });
-    });
-  });
-  root.querySelectorAll("[data-add-sub]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openCategorySheet({
-        kind: btn.dataset.kind,
-        parentId: parseInt(btn.dataset.addSub, 10),
-        onSaved: () => Router.render(),
-      });
-    });
-  });
+  root.appendChild(el("div", { class: "section-title", style: "margin-top:20px;" }, "Ingresos"));
+  root.appendChild(renderCategoryList(incomeCats));
+  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openCategoryEditSheet({ kind: "income", onSaved: () => Router.render() }) }, "+ Categoría de ingreso"));
 }
 
-function renderCategoryList(cats, subOf) {
+/** Lista de categorías: toca una fila para cambiar su nombre o emoji */
+function renderCategoryList(cats) {
   const card = el("div", { class: "card" });
   if (cats.length === 0) {
     card.appendChild(el("div", { class: "empty-state" }, "Sin categorías todavía."));
     return card;
   }
   for (const c of cats) {
-    const subs = subOf(c.id);
     card.appendChild(
-      el("div", { class: "list-item" }, [
+      el("div", { class: "list-item", style: "cursor:pointer;", onclick: async () => {
+        const cat = await DB.get("categories", c.id);
+        openCategoryEditSheet({ existing: cat, onSaved: () => Router.render() });
+      } }, [
         el("div", { class: "icon" }, categoryIconNode(c)),
-        el("div", { class: "main" }, [
-          el("div", { class: "title" }, c.name),
-          subs.length ? el("div", { class: "meta" }, subs.map((s) => s.name).join(", ")) : null,
-        ]),
-        el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", "data-add-sub": c.id, "data-kind": c.kind }, "+ sub"),
-        el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;margin-left:6px;", "data-edit-cat": c.id }, "Editar"),
+        el("div", { class: "main" }, [el("div", { class: "title" }, c.name)]),
+        el("div", {}, "›"),
       ])
     );
   }
   return card;
 }
 
-async function openCategorySheet({ existing = null, kind = "expense", parentId = null, onSaved = null } = {}) {
-  const data = existing || { name: "", icon: "📦", kind, parentId, isDefault: false, autoRule: null };
+async function openCategoryEditSheet({ existing = null, kind = "expense", onSaved = null } = {}) {
+  const data = existing || { name: "", icon: "📦", kind, isDefault: false, autoRule: null };
 
   const backdrop = el("div", { class: "sheet-backdrop" });
   const sheet = el("div", { class: "sheet" });
@@ -77,17 +52,18 @@ async function openCategorySheet({ existing = null, kind = "expense", parentId =
 
   sheet.innerHTML = `
     <div class="sheet-header">
-      <h2>${existing ? "Editar categoría" : parentId ? "Nueva subcategoría" : "Nueva categoría"}</h2>
+      <h2>${existing ? "Editar categoría" : "Nueva categoría"}</h2>
       <button class="sheet-close" data-close>✕</button>
     </div>
     <div class="form-group">
-      <label>Ícono</label>
-      <div class="icon-grid" id="f-icon-grid"></div>
-      <input type="hidden" id="f-icon" value="${data.icon}">
+      <label>Nombre</label>
+      <input type="text" id="f-name" value="${escapeHtml(data.name)}" placeholder="Ej. Mascotas">
     </div>
     <div class="form-group">
-      <label>Nombre</label>
-      <input type="text" id="f-name" value="${data.name}" placeholder="Ej. Mascotas">
+      <label>Emoji</label>
+      <div class="icon-grid" id="f-icon-grid"></div>
+      <input type="text" id="f-icon-custom" placeholder="O escribe o pega cualquier emoji" maxlength="4" style="margin-top:8px;">
+      <input type="hidden" id="f-icon" value="${data.icon}">
     </div>
     <div class="btn-row mt-8">
       ${existing && !existing.isDefault ? '<button class="btn btn-danger btn-sm" id="f-delete" style="flex:0 0 auto;">Eliminar</button>' : ""}
@@ -97,17 +73,22 @@ async function openCategorySheet({ existing = null, kind = "expense", parentId =
 
   sheet.querySelector("[data-close]").addEventListener("click", close);
 
-  // Selector de ícono: cuadrícula de emojis; el elegido queda marcado
+  // Emoji: cuadrícula de sugerencias o uno propio; el elegido queda marcado
   const iconInput = sheet.querySelector("#f-icon");
+  const iconCustom = sheet.querySelector("#f-icon-custom");
   const iconGrid = sheet.querySelector("#f-icon-grid");
   const iconChoices = [...new Set([data.icon, ...CATEGORY_ICON_CHOICES].filter(Boolean))];
   const markIcon = () => iconGrid.querySelectorAll(".icon-pick").forEach((b) =>
     b.classList.toggle("on", b.dataset.icon === iconInput.value));
   for (const emoji of iconChoices) {
     const b = el("button", { type: "button", class: "icon-pick", "data-icon": emoji }, emoji);
-    b.addEventListener("click", () => { iconInput.value = emoji; markIcon(); });
+    b.addEventListener("click", () => { iconInput.value = emoji; iconCustom.value = ""; markIcon(); });
     iconGrid.appendChild(b);
   }
+  iconCustom.addEventListener("input", () => {
+    const v = iconCustom.value.trim();
+    if (v) { iconInput.value = v; markIcon(); }
+  });
   markIcon();
 
   if (existing && !existing.isDefault) {
@@ -136,4 +117,4 @@ async function openCategorySheet({ existing = null, kind = "expense", parentId =
 }
 
 window.renderCategories = renderCategories;
-window.openCategorySheet = openCategorySheet;
+window.openCategoryEditSheet = openCategoryEditSheet;

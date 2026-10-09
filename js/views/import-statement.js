@@ -62,15 +62,7 @@ async function readPdfLines(file) {
 }
 
 function categoryOptions(categories) {
-  const parents = categories.filter((c) => !c.parentId);
-  const options = [];
-  for (const p of parents) {
-    options.push({ id: p.id, label: `${p.icon || ""} ${p.name}`.trim() });
-    for (const child of categories.filter((c) => c.parentId === p.id)) {
-      options.push({ id: child.id, label: `${p.name} › ${child.name}` });
-    }
-  }
-  return options;
+  return categories.map((c) => ({ id: c.id, label: `${c.icon || ""} ${c.name}`.trim() }));
 }
 
 async function renderImportStatement(root, params) {
@@ -347,12 +339,12 @@ async function renderImportStatement(root, params) {
       if (select.value === "__new__") {
         // Crear la categoría; al guardarla queda asignada a este movimiento
         select.value = row.categoryId || "";
-        openCategorySheet({
+        openCategoryEditSheet({
           kind: "expense",
           onSaved: async () => {
             const exp = (await DB.getAll("categories")).filter((c) => c.kind === "expense");
             catOptions = categoryOptions(exp);
-            const newest = exp.filter((c) => !c.parentId).sort((a, b) => b.id - a.id)[0];
+            const newest = exp.sort((a, b) => b.id - a.id)[0];
             if (newest) { row.categoryId = newest.id; row.manual = true; }
             renderReviewKeepScroll();
           },
