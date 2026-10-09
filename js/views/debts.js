@@ -58,8 +58,8 @@ async function renderDebts(root, params) {
     root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Registra tus deudas grandes, como un crédito de auto o un préstamo, y ve cuánto te falta por pagar.")]));
   }
   if (showDebts) {
-    root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
     for (const d of debts) root.appendChild(debtCard(d));
+    root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openDebtSheet(null) }, "+ Nueva deuda"));
   }
   if (showPlans) await renderInstallmentsCard(root);
 }
@@ -284,7 +284,6 @@ function installmentRemainingCents(p) {
 async function renderInstallmentsCard(root) {
   const [plans, accounts] = await Promise.all([loadInstallments(), DB.getAll("accounts")]);
   const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
-  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
   if (plans.length === 0) {
     root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [el("div", { class: "empty-state" }, "Aquí ves en qué cuota vas de cada compra a meses y cuánto te falta. También te lo sugerimos al importar tu estado de cuenta.")]));
   }
@@ -308,6 +307,7 @@ async function renderInstallmentsCard(root) {
       ])
     );
   }
+  root.appendChild(el("button", { class: "btn", style: "margin-top:12px;", onclick: () => openInstallmentSheet(null) }, "+ Compra a meses"));
 }
 
 /** Detalle de una compra a meses: resumen y acciones. */
