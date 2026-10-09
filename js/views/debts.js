@@ -166,7 +166,7 @@ async function openDebtPayment(debt) {
     .filter((a) => !a.archived && a.type !== "savings")
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
   if (accounts.length === 0) {
-    toast("Primero crea una cuenta en Ajustes → Cuentas", "error");
+    toast("No puedes registrar el abono porque no tienes cuentas. Crea una en Ajustes → Cuentas.", "error");
     return;
   }
   const backdrop = el("div", { class: "sheet-backdrop" });
