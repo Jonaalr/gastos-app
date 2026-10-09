@@ -375,7 +375,7 @@ input, select, textarea {
 .toast {
   background: #111827;
   border: 1px solid var(--border);
-  color: var(--text);
+  color: #ffffff; /* fijo: el fondo es oscuro en ambos temas */
   padding: 10px 16px;
   border-radius: 10px;
   font-size: 13px;
