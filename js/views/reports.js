@@ -12,6 +12,9 @@ async function renderReports(root, params) {
   const accF = params.get("acc") || "";
   const ranged = !!(fromF || toF);
   const useMonth = !ranged && !allTime;
+  // Mes elegido en la gráfica de 6 meses (si no hay, el del periodo)
+  const selParam = params.get("sel") || "";
+  const selKey = useMonth && /^\d{4}-\d{2}$/.test(selParam) ? selParam : monthKey;
 
   const [allTx, categories, accounts] = await Promise.all([
     DB.getAll("transactions"),
@@ -24,7 +27,8 @@ async function renderReports(root, params) {
   // Cambia el periodo o la cuenta manteniendo lo demás (igual que en Movimientos)
   const go = (changes) => {
     const next = new URLSearchParams();
-    const values = { month: monthKey, from: fromF, to: toF, todo: allTime ? "1" : "", acc: accF, ...changes };
+    const resetSel = ["month", "from", "to", "todo"].some((k) => k in changes);
+    const values = { month: monthKey, from: fromF, to: toF, todo: allTime ? "1" : "", acc: accF, sel: resetSel ? "" : selKey === monthKey ? "" : selKey, ...changes };
     const dropMonth = !!(values.from || values.to || values.todo);
     for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
     Router.navigate(`/reports?${next.toString()}`);
@@ -35,7 +39,8 @@ async function renderReports(root, params) {
     return (!fromF || t.date >= fromF) && (!toF || t.date <= toF);
   };
 
-  const txPeriod = allTx.filter((t) => t.type === "expense" && inPeriod(t) && (!accF || String(t.accountId) === accF));
+  const inCatPeriod = (t) => (useMonth ? DateUtil.monthKey(t.date) === selKey : inPeriod(t));
+  const txPeriod = allTx.filter((t) => t.type === "expense" && inCatPeriod(t) && (!accF || String(t.accountId) === accF));
   const byCategory = {};
   for (const t of txPeriod) {
     const key = t.categoryId || "none";
@@ -70,15 +75,16 @@ async function renderReports(root, params) {
     const [py, pm] = monthKey.split("-").map(Number);
     const keys = [];
     for (let i = 5; i >= 0; i--) keys.push(DateUtil.monthKey(new Date(py, pm - 1 - i, 1)));
-    const totals = keys.map((k) =>
-      allTx
-        .filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === k && (!accF || String(t.accountId) === accF))
-        .reduce((sum, t) => sum + myShareCents(t), 0)
-    );
-    const cur = totals[5];
-    const prevTotal = totals[4];
+    const totalFor = (k) => allTx
+      .filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === k && (!accF || String(t.accountId) === accF))
+      .reduce((sum, t) => sum + myShareCents(t), 0);
+    const totals = keys.map(totalFor);
+    const selIdx = keys.indexOf(selKey);
+    const cur = selIdx >= 0 ? totals[selIdx] : 0;
+    const prevKey = DateUtil.monthKey(new Date(Number(selKey.split("-")[0]), Number(selKey.split("-")[1]) - 2, 1));
+    const prevTotal = totalFor(prevKey);
     const diff = cur - prevTotal;
-    const prevLabel = MESES_ES[(pm === 1 ? 12 : pm - 1) - 1];
+    const prevLabel = MESES_ES[Number(prevKey.split("-")[1]) - 1];
     const maxV = Math.max(1, ...totals);
     const barW = 34;
     const gap = 14;
@@ -91,16 +97,27 @@ async function renderReports(root, params) {
     const bars = totals.map((v, i) => {
       const h = Math.max(2, Math.round((v / maxV) * maxH));
       const x = 10 + i * (barW + gap);
-      const isCur = i === 5;
+      const isSel = keys[i] === selKey;
       const mLabel = MESES_ES[Number(keys[i].split("-")[1]) - 1].slice(0, 3);
-      return `<rect x="${x}" y="${baseY - h}" width="${barW}" height="${h}" rx="6" fill="${isCur ? "#16A34A" : "#d1d5db"}"/>`
+      return `<g data-m="${keys[i]}" style="cursor:pointer;">`
+        + `<rect x="${x - gap / 2}" y="0" width="${barW + gap}" height="150" fill="transparent"/>`
+        + `<rect x="${x}" y="${baseY - h}" width="${barW}" height="${h}" rx="6" fill="${isSel ? "#16A34A" : "#d1d5db"}"/>`
         + `<text x="${x + barW / 2}" y="${baseY - h - 5}" text-anchor="middle" font-size="10" fill="#3f3f46">${compact(v)}</text>`
-        + `<text x="${x + barW / 2}" y="${baseY + 16}" text-anchor="middle" font-size="11" fill="${isCur ? "#15803d" : "#8e8e93"}" font-weight="${isCur ? 700 : 400}">${mLabel}</text>`;
+        + `<text x="${x + barW / 2}" y="${baseY + 16}" text-anchor="middle" font-size="11" fill="${isSel ? "#15803d" : "#8e8e93"}" font-weight="${isSel ? 700 : 400}">${mLabel}</text>`
+        + `</g>`;
     }).join("");
     const chartCard = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Gasto de los últimos 6 meses")]);
-    chartCard.appendChild(el("div", { html: `<svg viewBox="0 0 ${10 * 2 + 6 * barW + 5 * gap} 150" width="100%" role="img" aria-label="Gasto de los últimos 6 meses">${bars}</svg>` }));
+    const chartWrap = el("div", { html: `<svg viewBox="0 0 ${10 * 2 + 6 * barW + 5 * gap} 150" width="100%" role="img" aria-label="Gasto de los últimos 6 meses">${bars}</svg>` });
+    chartWrap.querySelectorAll("g[data-m]").forEach((g) => {
+      g.addEventListener("click", () => {
+        const k = g.getAttribute("data-m");
+        go({ sel: k === monthKey ? "" : k });
+      });
+    });
+    chartCard.appendChild(chartWrap);
+    const selLabel = MESES_ES[Number(selKey.split("-")[1]) - 1];
     if (prevTotal === 0 && cur === 0) {
-      chartCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en estos meses."));
+      chartCard.appendChild(el("div", { class: "empty-state" }, `Sin gastos en ${selLabel}.`));
     } else if (prevTotal === 0) {
       chartCard.appendChild(el("div", { class: "muted", style: "margin-top:8px;" }, `No hay gastos en ${prevLabel} para comparar.`));
     } else {
@@ -117,7 +134,7 @@ async function renderReports(root, params) {
   // ---- Gasto por categoría (del periodo elegido) ----
   const catCard = el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Gasto por categoría"),
-    el("div", { class: "muted", style: "font-size:12px;margin:-6px 0 6px;" }, periodLabelFor({ monthKey, from: fromF, to: toF, todo: allTime })),
+    el("div", { class: "muted", style: "font-size:12px;margin:-6px 0 6px;" }, periodLabelFor({ monthKey: useMonth ? selKey : monthKey, from: fromF, to: toF, todo: allTime })),
     el("div", { style: "font-size:22px;font-weight:800;margin-bottom:12px;" }, Money.format(totalExpense)),
   ]);
   if (rows.length === 0) {
