@@ -265,7 +265,10 @@ function renderTxRow(t, catMap, accMap) {
     el("div", { class: `icon tx-${kind}` }, isTransfer ? iconNode("transfer") : cat ? categoryIconNode(cat) : iconNode("tag")),
     el("div", { class: "main" }, [
       el("div", { class: "title" }, isTransfer ? "Transferencia" : t.merchant || (cat ? cat.name : "Sin descripción")),
-      el("div", { class: "meta" }, `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}${t.split ? ` · entre varios, tu parte ${Money.format(t.split.myShareCents)}` : ""}`),
+      el("div", { class: "meta" }, [
+        `${cat && !isTransfer ? cat.name + " · " : ""}${acc ? acc.name : "—"}${t.isRecurring ? " · domiciliado" : ""}${t.split ? ` · entre varios, tu parte ${Money.format(t.split.myShareCents)}` : ""}`,
+        t.pendingSplit && !t.split ? el("span", { class: "pending-split" }, "Pendiente por repartir") : null,
+      ]),
     ]),
     el("div", { class: `amount ${kind === "transfer" ? "" : kind}` }, `${sign}${Money.format(t.amountCents)}`),
   ]);

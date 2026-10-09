@@ -541,7 +541,7 @@ a { color: var(--accent); }
   animation: pickerFade 0.18s ease-out;
 }
 .picker-popup {
-  background: #1e293b;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 20px;
@@ -571,7 +571,7 @@ a { color: var(--accent); }
 .picker-day {
   aspect-ratio: 1;
   border-radius: 10px;
-  background: #0f172a;
+  background: var(--fill);
   color: var(--text);
   font-size: 14px;
   font-weight: 500;
@@ -644,7 +644,7 @@ body[data-route="/import"] .fab { display: none; }
   gap: 12px;
   margin-top: 14px;
   padding: 12px 14px;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--nav-bg);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1076,3 +1076,8 @@ input[type="date"], input[type="time"] {
 
 /* Comentario por movimiento en la importación */
 .imp-comment { width: 100%; margin-top: 6px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 14px; }
+
+/* Compartido en la importación y pendiente por repartir en Movimientos */
+.imp-share { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--fill); color: var(--text); }
+.imp-share.on { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.pending-split { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.22); color: var(--text); font-size: 11px; font-weight: 600; }

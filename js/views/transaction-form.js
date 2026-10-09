@@ -397,6 +397,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       isRecurring: currentType === "expense" ? sheet.querySelector("#f-recurring").checked : false,
       recurringDay: null,
       split: splitRecord,
+      // Marcado como compartido en la importación: se quita al repartirlo
+      pendingSplit: splitRecord ? false : !!existing?.pendingSplit,
       source: data.source || "manual",
       createdAt: existing?.createdAt || new Date().toISOString(),
     };

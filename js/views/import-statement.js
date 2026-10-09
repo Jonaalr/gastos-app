@@ -198,6 +198,7 @@ async function renderImportStatement(root, params) {
           refund,
           categoryId: refund ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
           manual: false,
+          shared: false,
         };
       });
 
@@ -336,7 +337,15 @@ async function renderImportStatement(root, params) {
     const comment = el("input", { type: "text", class: "imp-comment", placeholder: "Comentario: ¿de qué fue?", value: row.comment || "" });
     comment.addEventListener("input", () => { row.comment = comment.value; });
 
-    const tags = [];
+    // Compartido: lo marcas aquí y luego lo repartes en Movimientos (ahí eliges con quién)
+    const shareBtn = el("button", { type: "button", class: `imp-share${row.shared ? " on" : ""}` }, row.shared ? "✓ Compartido" : "Compartido");
+    shareBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      row.shared = !row.shared;
+      renderReviewKeepScroll();
+    });
+
+    const tags = [shareBtn];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
     if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Devolución"));
     if (row.dup) tags.push(el("span", { class: "imp-tag warn" }, row.dup.label));
@@ -399,6 +408,7 @@ async function renderImportStatement(root, params) {
           recurringDay: null,
           attachment: null,
           source: "import",
+          pendingSplit: !!r.shared,
           importKey: r.importKey,
           importBatch: batch,
           balanceApplied: false, // historial: el saldo de la cuenta ya lo incluye
