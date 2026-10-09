@@ -337,7 +337,8 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
     </div>
 
     <div class="btn-row mt-8">
-      ${existing ? '<button class="btn btn-danger btn-sm" id="f-archive" style="flex:0 0 auto;">Archivar</button>' : ""}
+      ${existing ? '<button class="btn btn-secondary btn-sm" id="f-archive" style="flex:0 0 auto;">Archivar</button>' : ""}
+      ${existing ? '<button class="btn btn-danger btn-sm" id="f-delete-account" style="flex:0 0 auto;">Eliminar</button>' : ""}
       <button class="btn" id="f-save">Guardar</button>
     </div>
   `;
@@ -394,6 +395,25 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
   });
 
   if (existing) {
+    // Eliminar solo si la cuenta no tiene movimientos ni metas ligadas (para no perder historial)
+    $("#f-delete-account").addEventListener("click", async () => {
+      const txCount = (await DB.getAll("transactions")).filter((t) => t.accountId === existing.id || t.toAccountId === existing.id).length;
+      if (txCount > 0) {
+        toast(`Esta cuenta tiene ${txCount} movimiento${txCount === 1 ? "" : "s"}, así que no se puede eliminar. Archívala para ocultarla.`, "error");
+        return;
+      }
+      const linkedGoal = (await loadGoals()).find((g) => g.accountId === existing.id);
+      if (linkedGoal) {
+        toast(`La meta "${linkedGoal.name}" usa esta cuenta. Cambia o elimina esa meta primero.`, "error");
+        return;
+      }
+      if (!confirm(`¿Eliminar la cuenta "${existing.name}"? No tiene movimientos, así que no se pierde historial.`)) return;
+      await DB.delete("accounts", existing.id);
+      toast("Cuenta eliminada", "success");
+      close();
+      if (onSaved) onSaved();
+    });
+
     $("#f-archive").addEventListener("click", async () => {
       if (!confirm("¿Archivar esta cuenta? Se oculta de Cuentas y del resumen, pero no se borra nada. Puedes restaurarla desde \"Cuentas archivadas\" al final de Cuentas.")) return;
       existing.archived = true;
