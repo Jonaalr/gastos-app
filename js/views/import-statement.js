@@ -82,7 +82,7 @@ async function renderImportStatement(root, params) {
   ]);
   const activeAccounts = accounts.filter((a) => !a.archived);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
-  const catOptions = categoryOptions(expenseCategories);
+  let catOptions = categoryOptions(expenseCategories);
 
   const preselected = parseInt(params.get("account") || "0", 10) || null;
   const state = {
@@ -297,10 +297,26 @@ async function renderImportStatement(root, params) {
     const select = el("select", { class: "imp-cat" }, [
       el("option", { value: "" }, "Sin categoría"),
       ...catOptions.map((o) => el("option", { value: o.id }, o.label)),
+      el("option", { value: "__new__" }, "+ Nueva categoría…"),
     ]);
     select.value = row.categoryId || "";
     if (row.refund) select.style.display = "none";
     select.addEventListener("change", () => {
+      if (select.value === "__new__") {
+        // Crear la categoría; al guardarla queda asignada a este movimiento
+        select.value = row.categoryId || "";
+        openCategorySheet({
+          kind: "expense",
+          onSaved: async () => {
+            const exp = (await DB.getAll("categories")).filter((c) => c.kind === "expense");
+            catOptions = categoryOptions(exp);
+            const newest = exp.filter((c) => !c.parentId).sort((a, b) => b.id - a.id)[0];
+            if (newest) { row.categoryId = newest.id; row.manual = true; }
+            renderReviewKeepScroll();
+          },
+        });
+        return;
+      }
       const id = select.value ? parseInt(select.value, 10) : null;
       row.categoryId = id;
       row.manual = true;
