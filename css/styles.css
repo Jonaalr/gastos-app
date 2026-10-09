@@ -1114,3 +1114,18 @@ input[type="date"] { position: relative; }
 .swipe-slot { touch-action: pan-y; }
 .swipe-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--text-dim); }
 .swipe-footer .link-btn { font-size: 12px; }
+
+/* Animaciones del inicio: al deslizar, la tarjeta entra desde el lado, el anillo crece y las barras suben */
+@keyframes slideL { from { transform: translateX(-36px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes slideR { from { transform: translateX(36px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { transform: none; opacity: 1; } }
+@keyframes ringIn { from { opacity: 0; transform: scale(0.85) rotate(-40deg); } to { opacity: 1; transform: none; } }
+@keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.chart-card.slide-l { animation: slideL 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.chart-card.slide-r { animation: slideR 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.chart-card.fade-in { animation: fadeIn 0.4s ease-out both; }
+.swipe-slot .ring svg { animation: ringIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: 50% 50%; }
+.swipe-slot .bar { transform-box: fill-box; transform-origin: 50% 100%; animation: barGrow 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .chart-card.slide-l, .chart-card.slide-r, .chart-card.fade-in, .swipe-slot .ring svg, .swipe-slot .bar { animation: none !important; }
+}

@@ -68,7 +68,7 @@ async function renderDashboard(root) {
   // ---- Gasto por mes: anillo por categoría. Desliza horizontalmente para ver meses anteriores ----
   let monthOffset = 0;
   const monthHolder = el("div", { class: "swipe-slot" });
-  const drawMonth = () => {
+  const drawMonth = (dir = 0) => {
     const ref = new Date();
     ref.setDate(1);
     ref.setMonth(ref.getMonth() - monthOffset);
@@ -112,7 +112,7 @@ async function renderDashboard(root) {
       ]);
     });
     const monthName = `${MONTHS_ES[ref.getMonth()]} ${ref.getFullYear()}`;
-    const card = el("div", { class: "chart-card" }, [
+    const card = el("div", { class: "chart-card" + slideClass(dir) }, [
       el("div", { class: "chart-head" }, [
         el("div", { class: "chart-title" }, monthOffset === 0 ? "Gasto del mes" : `Gasto de ${monthName}`),
         el("div", { class: "chart-sub" }, `Ingresos ${Money.format(incomeM)}`),
@@ -127,7 +127,7 @@ async function renderDashboard(root) {
     const next = monthOffset + dir;
     if (next < 0 || next > 11) return;
     monthOffset = next;
-    drawMonth();
+    drawMonth(dir);
   });
   drawMonth();
   root.appendChild(monthHolder);
@@ -135,7 +135,7 @@ async function renderDashboard(root) {
   // ---- Últimos 7 días por semana: barras. Desliza para ver semanas anteriores ----
   let weekOffset = 0;
   const weekHolder = el("div", { class: "swipe-slot" });
-  const drawWeek = () => {
+  const drawWeek = (dir = 0) => {
     const end = new Date();
     end.setDate(end.getDate() - weekOffset * 7);
     const week = [];
@@ -151,13 +151,13 @@ async function renderDashboard(root) {
     const bars = week
       .map((d, i) => {
         const h = Math.max(4, Math.round((d.sum / weekMax) * 84));
-        return `<rect x="${i * 44 + 9}" y="${100 - h}" width="26" height="${h}" rx="9" fill="#16A34A" opacity="${i === 6 ? 1 : 0.4}"/><text x="${i * 44 + 22}" y="116" text-anchor="middle" font-size="11" fill="#8E8E93">${d.label}</text>`;
+        return `<rect class="bar" style="animation-delay:${i * 45}ms" x="${i * 44 + 9}" y="${100 - h}" width="26" height="${h}" rx="9" fill="#16A34A" opacity="${i === 6 ? 1 : 0.4}"/><text x="${i * 44 + 22}" y="116" text-anchor="middle" font-size="11" fill="#8E8E93">${d.label}</text>`;
       })
       .join("");
     const startD = new Date(end);
     startD.setDate(end.getDate() - 6);
     const rangeLabel = `${DateUtil.formatShort(DateUtil.toISO(startD))} – ${DateUtil.formatShort(DateUtil.toISO(end))}`;
-    const card = el("div", { class: "chart-card" }, [
+    const card = el("div", { class: "chart-card" + slideClass(dir) }, [
       el("div", { class: "chart-head" }, [
         el("div", { class: "chart-title" }, weekOffset === 0 ? "Últimos 7 días" : `7 días · ${rangeLabel}`),
         el("div", { class: "chart-sub" }, `${Money.format(weekTotal)} gastados`),
@@ -172,7 +172,7 @@ async function renderDashboard(root) {
     const next = weekOffset + dir;
     if (next < 0 || next > 52) return;
     weekOffset = next;
-    drawWeek();
+    drawWeek(dir);
   });
   drawWeek();
   root.appendChild(weekHolder);
@@ -340,4 +340,11 @@ function swipeFooter(offset, unit, onReset) {
   const children = [hint];
   if (offset !== 0) children.push(el("button", { class: "link-btn", onclick: onReset }, "Volver a hoy"));
   return el("div", { class: "swipe-footer" }, children);
+}
+
+/** Clase de animación de entrada: dir > 0 = se viene de la izquierda (más antiguo), dir < 0 = de la derecha */
+function slideClass(dir) {
+  if (dir > 0) return " slide-l";
+  if (dir < 0) return " slide-r";
+  return " fade-in";
 }
