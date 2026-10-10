@@ -14,6 +14,14 @@ function addMonthsISO(iso, months, day) {
   return DateUtil.toISO(new Date(target.getFullYear(), target.getMonth(), Math.min(day, last)));
 }
 
+/** Solo persona y monto de cada parte (sin marcas viejas de "ya pagó") */
+function cleanSplit(split) {
+  return {
+    myShareCents: split.myShareCents,
+    participants: split.participants.map((p) => ({ personId: p.personId, shareCents: p.shareCents })),
+  };
+}
+
 /** ¿Todos los participantes ya pagaron su parte de este ciclo? */
 function cycleLines(cycle, tpl, collections, people) {
   const nameOf = Object.fromEntries(people.map((p) => [p.id, p.name]));
@@ -76,7 +84,7 @@ async function syncDomCycles(transactions, collections, people) {
       norm(t.merchant) === norm(tpl.merchant) && Math.abs(DateUtil.daysBetween(t.date, cycle.dueDate)) <= 5
     );
     if (match) {
-      match.split = tpl.split;
+      match.split = cleanSplit(tpl.split);
       match.cycleId = cycle.id;
       await DB.put("transactions", match);
       cycle.chargeTxId = match.id;
@@ -94,7 +102,7 @@ async function syncDomCycles(transactions, collections, people) {
         recurringDay: null,
         attachment: null,
         source: "domiciliado",
-        split: tpl.split,
+        split: cleanSplit(tpl.split),
         pendingSplit: false,
         cycleId: cycle.id,
         balanceApplied: true,

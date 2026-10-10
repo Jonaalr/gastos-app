@@ -99,7 +99,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
     mode: data.split ? "manual" : "equal",
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
-    paid: new Set(data.split ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
+    // En un domiciliado los pagos se llevan por ciclo (Dinero), no con "Ya te pagó"
+    paid: new Set(data.split && !data.isRecurring ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
   };
 
   /** Calcula el reparto a partir del monto y la forma elegida. Devuelve error o el reparto. */
@@ -391,6 +392,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     }
 
     // "Ya me pagó": cada persona marcada genera un cobro en Por cobrar; al desmarcarla, el cobro se quita
+    const recurringNow = currentType === "expense" && sheet.querySelector("#f-recurring").checked;
+    if (splitRecord && recurringNow) splitRecord.participants.forEach((p) => { p.paid = false; });
     const prevParts = existing?.split?.participants || [];
     const curIds = new Set(splitRecord ? splitRecord.participants.map((p) => p.personId) : []);
     const txDate = sheet.querySelector("#f-date").value || DateUtil.todayISO();
