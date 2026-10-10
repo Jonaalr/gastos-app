@@ -47,6 +47,7 @@ async function renderSettings(root) {
     ["/reports", "chart", "Informes", "Gastos por mes y categoría"],
     ["/calendar", "calendar", "Pagos domiciliados", "Cargos que se repiten"],
     ["/categories", "tag", "Categorías", "Agrega y cambia emojis"],
+    ["/statements", "receipt", "Estados de cuenta", "Qué meses ya cargaste"],
     ["/import", "receipt", "Importar estado de cuenta", "Lee un PDF de tu banco"],
   ];
   root.appendChild(

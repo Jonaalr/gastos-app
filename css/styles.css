@@ -1220,3 +1220,11 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 /* Hojas de filtro: al deslizar dentro de la lista se mueve la lista, no la página de atrás */
 .sheet-backdrop, .sheet { overscroll-behavior: contain; }
 .sheet { touch-action: pan-y; }
+
+/* Estados de cuenta: meses cargados (✓) y faltantes (—) */
+.stmt-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 12px; }
+.stmt-m { border-radius: 10px; padding: 6px 0; text-align: center; background: var(--bg-elevated); color: var(--text-dim); border: 1px solid var(--border); }
+.stmt-m.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.stmt-m.before { opacity: 0.4; }
+.stmt-name { font-size: 11px; font-weight: 600; }
+.stmt-mark { font-size: 13px; line-height: 1.2; }

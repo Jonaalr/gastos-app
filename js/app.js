@@ -19,6 +19,7 @@ const NAV_GROUPS = {
   "/transactions": "/reports",
   "/reports": "/reports",
   "/budgets": "/reports",
+  "/statements": "/settings",
 };
 function navActivePath(path) {
   return NAV_GROUPS[path] || path;
@@ -236,6 +237,7 @@ function registerRoutes() {
   Router.register("/account", renderAccountDetail);
   Router.register("/reconcile", renderReconcile);
   Router.register("/debts", renderDebts);
+  Router.register("/statements", renderStatements);
 }
 
 async function main() {
