@@ -1228,3 +1228,35 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 .stmt-m.before { opacity: 0.4; }
 .stmt-name { font-size: 11px; font-weight: 600; }
 .stmt-mark { font-size: 13px; line-height: 1.2; }
+
+/* Domiciliados compartidos: filas compactas con botón de píldora */
+.dom-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
+.dom-line-info { min-width: 0; }
+.dom-line-name { font-weight: 600; font-size: 15px; }
+.dom-line-meta { font-size: 12px; color: #8E8E93; margin-top: 1px; }
+.dom-pay-btn {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #16A34A;
+  background: rgba(22, 163, 74, 0.12);
+  cursor: pointer;
+  width: auto;
+  min-height: 0;
+}
+.dom-pay-btn:active { background: rgba(22, 163, 74, 0.22); }
+.dom-paid-tag {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16A34A;
+  background: rgba(22, 163, 74, 0.10);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+@media (prefers-color-scheme: dark) {
+  .dom-line-meta { color: #8E8E93; }
+}

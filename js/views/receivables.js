@@ -276,15 +276,15 @@ function domCyclesCard(cycles) {
       ? el("span", { class: "amount expense", style: "font-size:12px;" }, `Atrasado · cargo ${date}`)
       : el("span", { class: "meta" }, `Próximo cargo ${date}`);
     const block = el("div", { class: "dom-cycle", style: "padding:10px 0;border-top:1px solid rgba(0,0,0,.08);" }, [
-      el("div", { class: "flex-between" }, [el("strong", {}, c.tx.merchant || "Domiciliado"), status]),
+      el("div", {}, [el("strong", {}, c.tx.merchant || "Domiciliado"), el("div", { style: "margin-top:2px;" }, [status])]),
     ]);
     for (const l of c.lines) {
       const remaining = Math.max(0, l.shareCents - l.paidCents);
       const done = remaining === 0;
       const btn = done
-        ? el("span", { class: "meta" }, "Pagado")
+        ? el("span", { class: "dom-paid-tag" }, "✓ Pagado")
         : el("button", {
-            class: "btn small",
+            class: "dom-pay-btn",
             type: "button",
             onclick: () => openCollectionSheet({
               personId: l.personId,
@@ -296,8 +296,8 @@ function domCyclesCard(cycles) {
             }),
           }, "Ya me pagó");
       block.appendChild(
-        el("div", { class: "flex-between", style: "margin-top:8px;" }, [
-          el("div", {}, [el("div", { style: "font-weight:600;" }, l.name), el("div", { class: "meta" }, `Parte ${Money.format(l.shareCents)}${l.paidCents && !done ? ` · pagó ${Money.format(l.paidCents)}` : ""}`)]),
+        el("div", { class: "dom-line" }, [
+          el("div", { class: "dom-line-info" }, [el("div", { class: "dom-line-name" }, l.name), el("div", { class: "dom-line-meta" }, `Parte ${Money.format(l.shareCents)}${l.paidCents && !done ? ` · pagó ${Money.format(l.paidCents)}` : ""}`)]),
           btn,
         ])
       );
