@@ -62,6 +62,48 @@ async function syncDomCycles(transactions, collections, people) {
     }
   }
 
+  // Cargo que ya llegó: se registra como gasto de la cuenta del domiciliado, o se liga al gasto manual que ya existe
+  const norm = (x) => String(x || "").trim().toLowerCase();
+  for (const cycle of cycles) {
+    if (cycle.chargeTxId || cycle.dueDate > today) continue;
+    const tpl = templates.find((t) => t.id === cycle.txId);
+    if (!tpl) continue;
+    if (cycle.dueDate === tpl.date) { cycle.chargeTxId = tpl.id; changed = true; continue; } // el primer cargo ya es el gasto domiciliado
+    if (!tpl.accountId) continue;
+    const match = transactions.find((t) =>
+      t.type === "expense" && !t.split && !t.isRecurring && !t.cycleId &&
+      t.accountId === tpl.accountId && t.amountCents === tpl.amountCents &&
+      norm(t.merchant) === norm(tpl.merchant) && Math.abs(DateUtil.daysBetween(t.date, cycle.dueDate)) <= 5
+    );
+    if (match) {
+      match.split = tpl.split;
+      match.cycleId = cycle.id;
+      await DB.put("transactions", match);
+      cycle.chargeTxId = match.id;
+    } else {
+      cycle.chargeTxId = await saveTransactionWithBalances({
+        type: "expense",
+        amountCents: tpl.amountCents,
+        accountId: tpl.accountId,
+        toAccountId: null,
+        categoryId: tpl.categoryId || null,
+        merchant: tpl.merchant,
+        note: tpl.note || "",
+        date: cycle.dueDate,
+        isRecurring: false,
+        recurringDay: null,
+        attachment: null,
+        source: "domiciliado",
+        split: tpl.split,
+        pendingSplit: false,
+        cycleId: cycle.id,
+        balanceApplied: true,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    changed = true;
+  }
+
   if (changed) await DB.setMeta("domCycles", cycles);
   return cycles.filter((c) => alive.has(c.txId));
 }
@@ -78,7 +120,7 @@ async function computeReceivables() {
 
   // Gastos normales entre varios
   for (const t of transactions) {
-    if (!t.split || t.isRecurring) continue;
+    if (!t.split || t.isRecurring || t.cycleId) continue;
     for (const part of t.split.participants) {
       const row = byPerson.get(part.personId);
       if (!row) continue;
