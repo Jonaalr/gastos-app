@@ -302,7 +302,7 @@ function domCyclesCard(cycles) {
               note: `${c.tx.merchant || "Domiciliado"} · ${date}`,
               onSaved: () => Router.render(),
             }),
-          }, "Ya me pagó");
+          }, "Registrar pago");
       block.appendChild(
         el("div", { class: "dom-line" }, [
           el("div", { class: "dom-line-info" }, [el("div", { class: "dom-line-name" }, l.name), el("div", { class: "dom-line-meta" }, `Parte ${Money.format(l.shareCents)}${l.paidCents && !done ? ` · pagó ${Money.format(l.paidCents)}` : ""}`)]),
