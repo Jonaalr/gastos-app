@@ -20,7 +20,7 @@ async function renderDashboard(root) {
 
   const thisMonth = DateUtil.monthKey();
   const txThisMonth = transactions.filter((t) => DateUtil.monthKey(t.date) === thisMonth);
-  const incomeThisMonth = txThisMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
+  const incomeThisMonth = txThisMonth.filter((t) => t.type === "income" && !t.reimbursement).reduce((s, t) => s + t.amountCents, 0);
   const expenseThisMonth = txThisMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
 
   // Pagos del mes que aún no se registran (domiciliados sin confirmar, no cancelados ni omitidos)
@@ -146,7 +146,7 @@ async function renderDashboard(root) {
     ref.setMonth(ref.getMonth() - monthOffset);
     const mk = DateUtil.monthKey(ref);
     const txMonth = transactions.filter((t) => DateUtil.monthKey(t.date) === mk);
-    const incomeM = txMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
+    const incomeM = txMonth.filter((t) => t.type === "income" && !t.reimbursement).reduce((s, t) => s + t.amountCents, 0);
     const expenseM = txMonth.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
     const catTotals = new Map();
     for (const t of txMonth) {

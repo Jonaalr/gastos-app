@@ -164,7 +164,7 @@ async function renderSavingsControl(allTx, accounts) {
   const totalSavingsBalance = savingsAccounts.reduce((s, a) => s + a.balanceCents, 0);
 
   // Ahorro neto histórico = total de ingresos - total de gastos (todas las cuentas)
-  const totalIncome = allTx.filter((t) => t.type === "income").reduce((s, t) => s + t.amountCents, 0);
+  const totalIncome = allTx.filter((t) => t.type === "income" && !t.reimbursement).reduce((s, t) => s + t.amountCents, 0);
   const totalExpense = allTx.filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
   const netSavings = totalIncome - totalExpense;
 
