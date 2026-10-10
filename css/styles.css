@@ -1231,7 +1231,9 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 
 /* Domiciliados compartidos: filas compactas con botón de píldora */
 .dom-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
-.dom-line-info { min-width: 0; }
+.dom-line-info { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.dom-line-owe { font-size: 13px; color: #DC2626; font-weight: 600; }
+.dom-line-owe.done { color: #16A34A; }
 .dom-line-name { font-weight: 600; font-size: 15px; }
 .dom-line-meta { font-size: 12px; color: #8E8E93; margin-top: 1px; }
 .dom-pay-btn {

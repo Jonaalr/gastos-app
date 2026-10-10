@@ -305,7 +305,10 @@ function domCyclesCard(cycles) {
           }, "Registrar pago");
       block.appendChild(
         el("div", { class: "dom-line" }, [
-          el("div", { class: "dom-line-info" }, [el("div", { class: "dom-line-name" }, l.name), el("div", { class: "dom-line-meta" }, `Parte ${Money.format(l.shareCents)}${l.paidCents && !done ? ` · pagó ${Money.format(l.paidCents)}` : ""}`)]),
+          el("div", { class: "dom-line-info" }, [
+            el("span", { class: "dom-line-name" }, l.name),
+            el("span", { class: done ? "dom-line-owe done" : "dom-line-owe" }, done ? "Pagado" : `Te debe ${Money.format(remaining)}`),
+          ]),
           btn,
         ])
       );
