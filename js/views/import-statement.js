@@ -75,6 +75,7 @@ async function renderImportStatement(root, params) {
   ]);
   const activeAccounts = accounts.filter((a) => !a.archived).sort(accountPickerCompare);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
+  const creditAccounts = activeAccounts.filter((a) => a.type === "credit");
   let catOptions = categoryOptions(expenseCategories);
 
   const preselected = parseInt(params.get("account") || "0", 10) || null;
@@ -151,6 +152,10 @@ async function renderImportStatement(root, params) {
       // Si ya importaste otro estado de esta tarjeta, elegir su cuenta automáticamente
       const match = activeAccounts.find((a) => parsed.info.last4 && a.statementLast4 === parsed.info.last4);
       if (match) { state.accountId = match.id; accountSelect.value = match.id; }
+      else if (parsed.info.accountType === "debit") {
+        const debit = activeAccounts.find((a) => a.type === "debit");
+        if (debit) { state.accountId = debit.id; accountSelect.value = debit.id; }
+      }
       status.textContent = "";
       prepareRows();
       renderReview();
@@ -185,6 +190,8 @@ async function renderImportStatement(root, params) {
         }
 
         const refund = m.kind === "refund";
+        // Pago a la tarjeta de crédito: transferencia (no gasto ni ingreso), con su tarjeta destino
+        const transfer = m.kind === "transfer";
         return {
           i,
           m,
@@ -192,7 +199,9 @@ async function renderImportStatement(root, params) {
           dup,
           selected: false, // al abrir, nada seleccionado: marcas solo los que quieras importar
           refund,
-          categoryId: refund ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
+          transfer,
+          toAccountId: transfer ? (creditAccounts[0] || {}).id || null : null,
+          categoryId: refund || transfer ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
           manual: false,
           shared: false,
         };
@@ -334,7 +343,7 @@ async function renderImportStatement(root, params) {
       el("option", { value: "__new__" }, "+ Nueva categoría…"),
     ]);
     select.value = row.categoryId || "";
-    if (row.refund) select.style.display = "none";
+    if (row.refund || row.transfer) select.style.display = "none";
     select.addEventListener("change", () => {
       if (select.value === "__new__") {
         // Crear la categoría; al guardarla queda asignada a este movimiento
@@ -378,17 +387,32 @@ async function renderImportStatement(root, params) {
       renderReviewKeepScroll();
     });
 
-    const tags = [shareBtn];
+    const tags = row.transfer ? [] : [shareBtn];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
     if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Devolución"));
+    if (row.transfer) tags.push(el("span", { class: "imp-tag" }, "Pago de tarjeta · no es gasto"));
     if (row.dup) tags.push(el("span", { class: "imp-tag warn" }, row.dup.label));
 
+    // Tarjeta destino del pago (solo transferencias)
+    const destSelect = row.transfer
+      ? el("select", { class: "imp-cat" }, creditAccounts.length
+          ? creditAccounts.map((a) => el("option", { value: a.id }, accountPickerLabel(a)))
+          : [el("option", { value: "" }, "Crea la tarjeta para registrar este pago")])
+      : null;
+    if (destSelect) {
+      destSelect.value = row.toAccountId || "";
+      destSelect.addEventListener("change", () => { row.toAccountId = parseInt(destSelect.value, 10) || null; });
+    }
+
+    const amountClass = row.transfer ? "transfer" : row.refund ? "income" : "expense";
+    const amountSign = row.transfer ? "⇄ " : row.refund ? "+" : "-";
     const wrap = el("div", { class: `imp-row${row.selected ? "" : " off"}` }, [
       el("label", { class: "imp-check" }, [chk]),
       el("div", { class: "imp-main" }, [
-        el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, m.description), el("span", { class: `imp-amount ${row.refund ? "income" : "expense"}` }, `${row.refund ? "+" : "-"}${Money.format(m.amountCents)}`)]),
+        el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, m.description), el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`)]),
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
-        select,
+        ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, "Tarjeta a la que se pagó")] : []),
+        ...(destSelect ? [destSelect] : [select]),
         comment,
       ]),
     ]);
@@ -406,9 +430,15 @@ async function renderImportStatement(root, params) {
     renderReviewKeepScroll();
   }
 
+  // Lo que se importará: seleccionados, salvo pagos de tarjeta sin tarjeta destino
+  function importable() {
+    return state.rows.filter((r) => r.selected && !(r.transfer && !r.toAccountId));
+  }
+
   function refreshBar() {
-    const chosen = state.rows.filter((r) => r.selected);
-    const total = chosen.reduce((s, r) => s + (r.refund ? -r.m.amountCents : r.m.amountCents), 0);
+    const chosen = importable();
+    // Los pagos de tarjeta no son gasto: no suman al total
+    const total = chosen.filter((r) => !r.transfer).reduce((s, r) => s + (r.refund ? -r.m.amountCents : r.m.amountCents), 0);
     const info = reviewBox.querySelector("#imp-bar-info");
     const go = reviewBox.querySelector("#imp-go");
     if (info) info.textContent = chosen.length ? `${chosen.length} movimientos · ${Money.format(total)}` : "Nada seleccionado";
@@ -421,7 +451,7 @@ async function renderImportStatement(root, params) {
     go.disabled = true;
     go.textContent = "Importando…";
     const { info } = state.parsed;
-    const chosen = state.rows.filter((r) => r.selected);
+    const chosen = importable();
     const batch = `${info.bank}-${info.last4}-${info.cutDate || "s/f"}`;
     const now = new Date().toISOString();
     const monthCount = {};
@@ -429,11 +459,11 @@ async function renderImportStatement(root, params) {
     try {
       for (const r of chosen) {
         await DB.add("transactions", {
-          type: r.refund ? "income" : "expense",
+          type: r.transfer ? "transfer" : r.refund ? "income" : "expense",
           amountCents: r.m.amountCents,
           accountId: state.accountId,
-          toAccountId: null,
-          categoryId: r.refund ? null : r.categoryId,
+          toAccountId: r.transfer ? r.toAccountId : null,
+          categoryId: r.refund || r.transfer ? null : r.categoryId,
           merchant: r.m.description,
           note: [r.comment && r.comment.trim(), r.m.rawDescription.replace(/\s+/g, " ")].filter(Boolean).join(" · "),
           date: r.m.date,
@@ -454,7 +484,7 @@ async function renderImportStatement(root, params) {
       // Recordar la categoría elegida para cada comercio (para los próximos estados de cuenta)
       const mem = { ...(await DB.getMeta("merchantCategories", {})) };
       for (const r of chosen) {
-        if (r.categoryId && !r.refund) mem[StatementImporters.merchantKey(r.m.description)] = r.categoryId;
+        if (r.categoryId && !r.refund && !r.transfer) mem[StatementImporters.merchantKey(r.m.description)] = r.categoryId;
       }
       await DB.setMeta("merchantCategories", mem);
 
@@ -505,7 +535,8 @@ async function renderImportStatement(root, params) {
       }
 
       const topMonth = Object.entries(monthCount).sort((a, b) => b[1] - a[1])[0];
-      toast(`${chosen.length} movimientos importados`, "success");
+      const skipped = state.rows.filter((r) => r.selected && r.transfer && !r.toAccountId).length;
+      toast(`${chosen.length} movimientos importados${skipped ? ` · ${skipped} pago(s) sin tarjeta, no importados` : ""}`, "success");
       Router.navigate(`/transactions?month=${topMonth ? topMonth[0] : DateUtil.monthKey()}`);
     } catch (err) {
       console.error(err);
