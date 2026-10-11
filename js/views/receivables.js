@@ -461,6 +461,10 @@ async function openCollectionSheet({ personId, name, suggested = 0, cycleId = nu
       <select id="f-col-account">${accounts.map((a) => `<option value="${a.id}">${escapeHtml(accountPickerLabel(a))}</option>`).join("")}</select>
       <div class="field-hint">Se registra como reembolso: suma a esa cuenta, pero no cuenta como ingreso.</div>
     </div>
+    <label class="checkbox-row" style="margin:0 0 14px;">
+      <input type="checkbox" id="f-col-already">
+      <span style="font-size:13px;">Ya está en el saldo de la cuenta (no sumar otra vez)</span>
+    </label>
     <div class="form-group">
       <label>Forma de pago</label>
       <div class="segmented" id="f-col-method">
@@ -498,6 +502,7 @@ async function openCollectionSheet({ personId, name, suggested = 0, cycleId = nu
     if (!accountId) { toast("Elige la cuenta donde entró el dinero", "error"); return; }
     const date = sheet.querySelector("#f-col-date").value || DateUtil.todayISO();
     const noteText = sheet.querySelector("#f-col-note").value.trim();
+    const alreadyInBalance = sheet.querySelector("#f-col-already").checked;
     const person = await DB.get("people", personId);
     const colId = await DB.add("collections", {
       personId,
@@ -526,7 +531,7 @@ async function openCollectionSheet({ personId, name, suggested = 0, cycleId = nu
       reimbursement: true,
       collectionId: colId,
       pendingSplit: false,
-      balanceApplied: true,
+      balanceApplied: !alreadyInBalance, // ya estaba en el saldo: aparece en Movimientos sin volver a sumarlo
       createdAt: new Date().toISOString(),
     });
     const saved = await DB.get("collections", colId);
