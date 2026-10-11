@@ -252,6 +252,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     updateSplitSummary();
   }
 
+  // Domiciliado: la fecha que se muestra es el próximo cargo (la misma que ves en Pagos)
+  const nextDue = data.isRecurring && data.id && data.recurringDay ? DateUtil.nextOccurrence(data.recurringDay) : null;
   sheet.innerHTML = `
     <div class="sheet-header">
       <h2>${existing ? "Editar" : "Nueva"} transacción</h2>
@@ -300,8 +302,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
     <div class="form-group">
       <label>Fecha</label>
-      <input type="date" id="f-date" value="${data.date?.slice(0, 10) || DateUtil.todayISO()}">
-      ${data.isRecurring && data.id && data.recurringDay ? `<div class="field-hint">Primer cargo. Próximo cargo: ${DateUtil.formatShort(DateUtil.nextOccurrence(data.recurringDay))}</div>` : ""}
+      <input type="date" id="f-date" value="${nextDue || data.date?.slice(0, 10) || DateUtil.todayISO()}">
+      ${nextDue ? `<div class="field-hint">Próximo cargo. Si la cambias, cambia el día del mes del domiciliado.</div>` : ""}
     </div>
 
     <div class="form-group">
@@ -493,7 +495,14 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       record.importKey = existing.importKey;
       record.importBatch = existing.importBatch;
     }
-    if (record.isRecurring) {
+    if (record.isRecurring && existing && existing.isRecurring && existing.recurringDay) {
+      // Domiciliado ya existente: el primer gasto no se mueve; la fecha de la hoja es el próximo cargo
+      const picked = sheet.querySelector("#f-date").value;
+      record.date = existing.date;
+      record.recurringDay = picked && picked !== DateUtil.nextOccurrence(existing.recurringDay)
+        ? new Date(picked + "T00:00:00").getDate()
+        : existing.recurringDay;
+    } else if (record.isRecurring) {
       record.recurringDay = new Date(record.date + "T00:00:00").getDate();
     }
     if (existing) record.id = existing.id;
