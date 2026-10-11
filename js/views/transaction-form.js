@@ -283,6 +283,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     <div class="form-group">
       <label id="label-account">Cuenta</label>
       <select id="f-account">${accountOptions(data.accountId)}</select>
+      <div id="transfer-balance" class="tr-balance" style="display:${data.type === "transfer" ? "block" : "none"}"></div>
     </div>
 
     <div class="form-group" id="group-to-account" style="display:${data.type === "transfer" ? "block" : "none"}">
@@ -357,6 +358,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       if (acctSel.value !== String(keep) && acctSel.options.length) acctSel.selectedIndex = 0;
       const catSelect = sheet.querySelector("#f-category");
       catSelect.innerHTML = currentType === "income" ? catOptionsIncome : catOptionsExpense;
+      refreshTransferBalance();
     });
   });
 
@@ -368,7 +370,34 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   });
   sheet.querySelector("#f-amount").addEventListener("input", () => {
     if (split.enabled) renderSplitBox();
+    refreshTransferBalance();
   });
+  sheet.querySelector("#f-account").addEventListener("change", refreshTransferBalance);
+
+  // Saldo de la cuenta origen y cómo quedaría después de la transferencia
+  function refreshTransferBalance() {
+    const box = sheet.querySelector("#transfer-balance");
+    if (!box) return;
+    box.style.display = currentType === "transfer" ? "block" : "none";
+    if (currentType !== "transfer") return;
+    const acc = accounts.find((a) => a.id === parseInt(sheet.querySelector("#f-account").value, 10));
+    if (!acc) { box.textContent = ""; return; }
+    const amount = Money.toCents(sheet.querySelector("#f-amount").value || "0");
+    const isCredit = acc.type === "credit" && typeof creditInfo === "function";
+    const current = isCredit ? creditInfo(acc).available : acc.balanceCents;
+    const after = current - amount;
+    box.innerHTML = "";
+    box.appendChild(el("div", { class: "tr-line" }, [
+      el("span", {}, `Saldo en ${acc.name}`),
+      el("strong", {}, Money.format(current)),
+    ]));
+    box.appendChild(el("div", { class: `tr-line tr-after${after < 0 ? " neg" : ""}` }, [
+      el("span", {}, amount > 0 ? "Te quedaría" : "Te quedaría (escribe el monto)"),
+      el("strong", {}, Money.format(after)),
+    ]));
+    if (after < 0) box.appendChild(el("div", { class: "tr-warn" }, "Esta transferencia dejaría la cuenta en negativo."));
+  }
+  refreshTransferBalance();
   if (split.enabled) renderSplitBox();
 
   // Auto-sugerencia de categoría al escribir el comercio
