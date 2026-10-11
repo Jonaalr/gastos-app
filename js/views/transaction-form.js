@@ -156,14 +156,14 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     const recurringNow = !!sheet.querySelector("#f-recurring")?.checked;
     const rows = [...split.selected]
       .map((id) => {
-        const paid = split.paid.has(id) && !recurringNow;
+        const paid = split.paid.has(id);
         const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
         const accSel = paid
           ? `<div class="split-acc"><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
               .map((a) => `<option value="${a.id}" ${a.id === (split.paidAcc.get(id) || defaultPayAccountId()) ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
               .join("")}</select></div>`
           : "";
-        const chk = recurringNow ? "" : `<input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>`;
+        const chk = `<input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>`;
         return `<div class="split-row">
           <span>${escapeHtml(nameOf(id))}</span>
           <div class="split-amt">
@@ -172,7 +172,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
           </div>
         </div>${accSel}`;
       })
-      .join("") + (recurringNow && split.selected.size ? `<div class="field-hint" style="margin:6px 0;">Los pagos de un domiciliado se registran por cargo en Dinero.</div>` : "");
+      .join("") + (recurringNow && split.selected.size ? `<div class="field-hint" style="margin:6px 0;">Se registra en el cargo pendiente de cada persona.</div>` : "");
 
     box.innerHTML = `
       <div class="split-chips">${chips || '<span class="field-hint">Aún no tienes personas. Agrega una abajo.</span>'}</div>
@@ -410,9 +410,12 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
     // "Ya me pagó": cada persona marcada genera un cobro en Por cobrar; al desmarcarla, el cobro se quita
     const recurringNow = currentType === "expense" && sheet.querySelector("#f-recurring").checked;
-    if (splitRecord && recurringNow) splitRecord.participants.forEach((p) => { p.paid = false; });
     if (splitRecord && splitRecord.participants.some((p) => p.paid && p.shareCents > 0 && !(split.paidAcc.get(p.personId) || defaultPayAccountId()))) {
       toast("Elige la cuenta donde entró el pago", "error");
+      return;
+    }
+    if (splitRecord && recurringNow && !existing && splitRecord.participants.some((p) => p.paid && p.shareCents > 0)) {
+      toast("Guarda primero el domiciliado y luego registra el pago", "error");
       return;
     }
     const prevParts = existing?.split?.participants || [];
@@ -422,36 +425,40 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     if (splitRecord) {
       for (const p of splitRecord.participants) {
         const prevCol = prevParts.find((x) => x.personId === p.personId)?.collectionId || null;
+        if (recurringNow) {
+          // Domiciliado: el pago va al cargo pendiente más antiguo de esta persona; la marca no se guarda
+          if (p.paid && p.shareCents > 0 && existing) {
+            const target = await nextOpenCycleFor(existing.id, p.personId, p.shareCents);
+            if (target) {
+              await recordSharePayment({
+                personId: p.personId,
+                amountCents: target.remaining,
+                accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
+                date: txDate,
+                note: `${sheet.querySelector("#f-merchant").value.trim() || "Domiciliado"} · ${target.cycle.dueDate}`,
+                cycleId: target.cycle.id,
+                personName: people.find((x) => x.id === p.personId)?.name || "—",
+              });
+            }
+          }
+          p.paid = false;
+          if (prevCol) await removePaidCollection(prevCol);
+          continue;
+        }
         if (p.paid && p.shareCents > 0) {
           const fields = { personId: p.personId, amountCents: p.shareCents, method: "transfer", date: txDate, note: payNote, createdAt: new Date().toISOString() };
           if (prevCol && (await DB.get("collections", prevCol))) {
             await DB.put("collections", { ...(await DB.get("collections", prevCol)), ...fields, id: prevCol });
             p.collectionId = prevCol;
           } else {
-            const accountId = split.paidAcc.get(p.personId) || defaultPayAccountId();
-            p.collectionId = await DB.add("collections", { ...fields, accountId });
-            // Reembolso: entra a esa cuenta (saldo y Movimientos), no cuenta como ingreso
-            const txId = await saveTransactionWithBalances({
-              type: "income",
+            p.collectionId = await recordSharePayment({
+              personId: p.personId,
               amountCents: p.shareCents,
-              accountId,
-              toAccountId: null,
-              categoryId: null,
-              merchant: `Reembolso · ${people.find((x) => x.id === p.personId)?.name || "—"}`,
-              note: payNote,
+              accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
               date: txDate,
-              isRecurring: false,
-              recurringDay: null,
-              attachment: null,
-              source: "reembolso",
-              reimbursement: true,
-              pendingSplit: false,
-              balanceApplied: true,
-              createdAt: new Date().toISOString(),
+              note: payNote,
+              personName: people.find((x) => x.id === p.personId)?.name || "—",
             });
-            const saved = await DB.get("collections", p.collectionId);
-            saved.reimbursementTxId = txId;
-            await DB.put("collections", saved);
           }
         } else if (prevCol) {
           await removePaidCollection(prevCol);
@@ -508,6 +515,45 @@ async function saveTransactionWithBalances(record, previous) {
   const id = await DB.put("transactions", record);
   await applyBalanceDelta({ ...record, id }, +1);
   return id;
+}
+
+/** Cargo pendiente más antiguo de una persona en un domiciliado (y cuánto le falta de ese cargo) */
+async function nextOpenCycleFor(txId, personId, shareCents) {
+  const cycles = (await DB.getMeta("domCycles", [])).filter((c) => c.txId === txId).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const cols = await DB.getAll("collections");
+  for (const cycle of cycles) {
+    const paid = cols.filter((x) => x.cycleId === cycle.id && x.personId === personId).reduce((s, x) => s + x.amountCents, 0);
+    if (paid < shareCents) return { cycle, remaining: shareCents - paid };
+  }
+  return null;
+}
+
+/** Registra el cobro de una persona (con cuenta) y su reembolso. Devuelve el id del cobro. */
+async function recordSharePayment({ personId, amountCents, accountId, date, note, cycleId = null, personName }) {
+  const colId = await DB.add("collections", { personId, amountCents, method: "transfer", date, note, accountId, cycleId, createdAt: new Date().toISOString() });
+  const txId = await saveTransactionWithBalances({
+    type: "income",
+    amountCents,
+    accountId,
+    toAccountId: null,
+    categoryId: null,
+    merchant: `Reembolso · ${personName}`,
+    note,
+    date,
+    isRecurring: false,
+    recurringDay: null,
+    attachment: null,
+    source: "reembolso",
+    reimbursement: true,
+    collectionId: colId,
+    pendingSplit: false,
+    balanceApplied: true,
+    createdAt: new Date().toISOString(),
+  });
+  const saved = await DB.get("collections", colId);
+  saved.reimbursementTxId = txId;
+  await DB.put("collections", saved);
+  return colId;
 }
 
 /** Quita un cobro de "ya pagó" y el reembolso que creó (revirtiendo el saldo de su cuenta) */
