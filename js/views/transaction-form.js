@@ -94,13 +94,21 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
   // ---------- Estado del reparto ----------
   let people = (await DB.getAll("people")).sort((a, b) => a.name.localeCompare(b.name));
+  // Domiciliado: cargo pendiente y quiénes ya lo pagaron (se muestran marcados)
+  let pending = null;
+  if (data.isRecurring && data.id) {
+    await computeReceivables(); // asegura que existan los ciclos
+    pending = await pendingCycleInfo(data.id);
+  }
   const split = {
     enabled: !!data.split,
     selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
     mode: data.split ? "manual" : "equal",
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
     // En un domiciliado los pagos se llevan por ciclo (Dinero), no con "Ya te pagó"
-    paid: new Set(data.split && !data.isRecurring ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
+    paid: new Set(data.isRecurring ? (pending ? [...pending.paidIds] : []) : data.split ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
+    paidInitial: new Set(pending ? [...pending.paidIds] : []), // ya pagados al abrir (su pago ya está registrado)
+    pendingCycleId: pending ? pending.cycle.id : null,
     paidAcc: new Map(), // personId -> cuenta donde entró su pago
   };
   const payAccounts = () => accounts.filter((a) => !a.archived && a.type !== "credit").sort(accountPickerCompare);
@@ -158,7 +166,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       .map((id) => {
         const paid = split.paid.has(id);
         const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
-        const accSel = paid
+        const accSel = paid && !split.paidInitial.has(id)
           ? `<div class="split-acc"><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
               .map((a) => `<option value="${a.id}" ${a.id === (split.paidAcc.get(id) || defaultPayAccountId()) ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
               .join("")}</select></div>`
@@ -428,12 +436,20 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     let cyclesSynced = false;
     const paymentsRecorded = [];
     const alreadyPaid = [];
+    const paymentsCancelled = [];
     if (splitRecord) {
       for (const p of splitRecord.participants) {
         const prevCol = prevParts.find((x) => x.personId === p.personId)?.collectionId || null;
         if (recurringNow) {
           // Domiciliado: el pago va al cargo pendiente más antiguo de esta persona; la marca no se guarda
-          if (p.paid && existing) {
+          const wasPaid = split.paidInitial.has(p.personId);
+          if (!p.paid && wasPaid && existing && split.pendingCycleId) {
+            // Desmarcó a alguien que ya había pagado este cargo: se cancela ese pago y su reembolso
+            const cols = (await DB.getAll("collections")).filter((c) => c.cycleId === split.pendingCycleId && c.personId === p.personId);
+            for (const c of cols) await removePaidCollection(c.id);
+            paymentsCancelled.push(people.find((x) => x.id === p.personId)?.name || "—");
+          }
+          if (p.paid && !wasPaid && existing) {
             // La parte puede llegar en 0 desde la hoja (casilla marcada): se toma la guardada en el domiciliado
             const share = p.shareCents || existing.split?.participants?.find((x) => x.personId === p.personId)?.shareCents || 0;
             if (share > 0) {
@@ -523,7 +539,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     if (existing) record.id = existing.id;
 
     await saveTransactionWithBalances(record, existing);
-    const savedMsg = paymentsRecorded.length ? `Guardado · pago de ${paymentsRecorded.join(", ")} registrado` : "Guardado";
+    const savedMsg = "Guardado" + (paymentsRecorded.length ? ` · pago de ${paymentsRecorded.join(", ")} registrado` : "") + (paymentsCancelled.length ? ` · pago de ${paymentsCancelled.join(", ")} cancelado` : "");
     toast(alreadyPaid.length ? `${savedMsg} · ${alreadyPaid.join(", ")} ya cubrió el cargo pendiente, no se registró otro pago` : savedMsg, alreadyPaid.length ? "error" : "success");
     close();
     if (onSaved) onSaved();
@@ -541,6 +557,23 @@ async function saveTransactionWithBalances(record, previous) {
   const id = await DB.put("transactions", record);
   await applyBalanceDelta({ ...record, id }, +1);
   return id;
+}
+
+/** Primer cargo de un domiciliado que aún no pagan todos, y quiénes ya cubrieron su parte */
+async function pendingCycleInfo(txId) {
+  const tx = await DB.get("transactions", txId);
+  if (!tx || !tx.split) return null;
+  const cycles = (await DB.getMeta("domCycles", [])).filter((c) => c.txId === txId).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const cols = await DB.getAll("collections");
+  for (const cycle of cycles) {
+    const paidIds = new Set();
+    for (const part of tx.split.participants) {
+      const paid = cols.filter((x) => x.cycleId === cycle.id && x.personId === part.personId).reduce((s, x) => s + x.amountCents, 0);
+      if (paid >= part.shareCents) paidIds.add(part.personId);
+    }
+    if (paidIds.size < tx.split.participants.length) return { cycle, paidIds };
+  }
+  return null;
 }
 
 /** Cargo pendiente más antiguo de una persona en un domiciliado (y cuánto le falta de ese cargo) */
