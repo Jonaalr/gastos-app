@@ -425,23 +425,38 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     const curIds = new Set(splitRecord ? splitRecord.participants.map((p) => p.personId) : []);
     const txDate = sheet.querySelector("#f-date").value || DateUtil.todayISO();
     const payNote = `Pagó: ${sheet.querySelector("#f-merchant").value.trim() || "gasto compartido"}`;
+    let cyclesSynced = false;
+    const paymentsRecorded = [];
+    const alreadyPaid = [];
     if (splitRecord) {
       for (const p of splitRecord.participants) {
         const prevCol = prevParts.find((x) => x.personId === p.personId)?.collectionId || null;
         if (recurringNow) {
           // Domiciliado: el pago va al cargo pendiente más antiguo de esta persona; la marca no se guarda
-          if (p.paid && p.shareCents > 0 && existing) {
-            const target = await nextOpenCycleFor(existing.id, p.personId, p.shareCents);
-            if (target) {
-              await recordSharePayment({
-                personId: p.personId,
-                amountCents: target.remaining,
-                accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
-                date: DateUtil.todayISO(), // cuando entró el dinero
-                note: `${sheet.querySelector("#f-merchant").value.trim() || "Domiciliado"} · ${target.cycle.dueDate}`,
-                cycleId: target.cycle.id,
-                personName: people.find((x) => x.id === p.personId)?.name || "—",
-              });
+          if (p.paid && existing) {
+            // La parte puede llegar en 0 desde la hoja (casilla marcada): se toma la guardada en el domiciliado
+            const share = p.shareCents || existing.split?.participants?.find((x) => x.personId === p.personId)?.shareCents || 0;
+            if (share > 0) {
+              // Asegura que existan los ciclos (el siguiente cargo) antes de buscar el pendiente
+              if (!cyclesSynced) { await computeReceivables(); cyclesSynced = true; }
+              const target = await nextOpenCycleFor(existing.id, p.personId, share);
+              const personName = people.find((x) => x.id === p.personId)?.name || "—";
+              const merchantName = sheet.querySelector("#f-merchant").value.trim() || "Domiciliado";
+              if (!target) {
+                // Ya cubrió el cargo pendiente: no se duplica el pago
+                alreadyPaid.push(personName);
+              } else {
+                await recordSharePayment({
+                  personId: p.personId,
+                  amountCents: target.remaining,
+                  accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
+                  date: DateUtil.todayISO(), // cuando entró el dinero
+                  note: `${merchantName} · ${target.cycle.dueDate}`,
+                  cycleId: target.cycle.id,
+                  personName,
+                });
+                paymentsRecorded.push(personName);
+              }
             }
           }
           p.paid = false;
@@ -508,7 +523,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     if (existing) record.id = existing.id;
 
     await saveTransactionWithBalances(record, existing);
-    toast("Guardado", "success");
+    const savedMsg = paymentsRecorded.length ? `Guardado · pago de ${paymentsRecorded.join(", ")} registrado` : "Guardado";
+    toast(alreadyPaid.length ? `${savedMsg} · ${alreadyPaid.join(", ")} ya cubrió el cargo pendiente, no se registró otro pago` : savedMsg, alreadyPaid.length ? "error" : "success");
     close();
     if (onSaved) onSaved();
   });
