@@ -301,6 +301,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     <div class="form-group">
       <label>Fecha</label>
       <input type="date" id="f-date" value="${data.date?.slice(0, 10) || DateUtil.todayISO()}">
+      ${data.isRecurring && data.id && data.recurringDay ? `<div class="field-hint">Primer cargo. Próximo cargo: ${DateUtil.formatShort(DateUtil.nextOccurrence(data.recurringDay))}</div>` : ""}
     </div>
 
     <div class="form-group">
