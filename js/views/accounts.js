@@ -230,6 +230,8 @@ async function renderSavingsSummary(savingsAccounts) {
   const totalBalance = savingsAccounts.reduce((s, a) => s + a.balanceCents, 0);
   const totalDaily = savingsAccounts.reduce((s, a) => s + computeDailyInterestCents(a), 0);
   const totalMonthly = savingsAccounts.reduce((s, a) => s + computeMonthlyInterestCents(a), 0);
+  // Año calendario: los mismos 365 días que usa el ISR de la app
+  const totalAnnual = totalDaily * 365;
 
   return el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Resumen de rendimientos"),
@@ -237,7 +239,10 @@ async function renderSavingsSummary(savingsAccounts) {
       el("div", { class: "stat-box" }, [el("div", { class: "label" }, "Saldo generando rendimientos"), el("div", { class: "value" }, Money.format(totalBalance))]),
       el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al mes"), el("div", { class: "value" }, Money.format(totalMonthly))]),
     ]),
-    el("div", { class: "text-dim", style: "font-size:12px; margin-top:8px;" }, `≈ ${Money.format(totalDaily)} por día entre ${savingsAccounts.length} cuenta(s)`),
+    el("div", { class: "stat-row", style: "margin-top:10px;" }, [
+      el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al año"), el("div", { class: "value" }, Money.format(totalAnnual))]),
+      el("div", { class: "stat-box" }, [el("div", { class: "label" }, `Por día (${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"})`), el("div", { class: "value" }, Money.format(totalDaily))]),
+    ]),
   ]);
 }
 
