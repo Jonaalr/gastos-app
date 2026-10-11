@@ -434,7 +434,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
                 personId: p.personId,
                 amountCents: target.remaining,
                 accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
-                date: txDate,
+                date: DateUtil.todayISO(), // cuando entró el dinero
                 note: `${sheet.querySelector("#f-merchant").value.trim() || "Domiciliado"} · ${target.cycle.dueDate}`,
                 cycleId: target.cycle.id,
                 personName: people.find((x) => x.id === p.personId)?.name || "—",
@@ -455,7 +455,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
               personId: p.personId,
               amountCents: p.shareCents,
               accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
-              date: txDate,
+              date: DateUtil.todayISO(), // cuando entró el dinero
               note: payNote,
               personName: people.find((x) => x.id === p.personId)?.name || "—",
             });
