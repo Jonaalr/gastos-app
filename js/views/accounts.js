@@ -330,31 +330,50 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
     </div>
 
     <div id="savings-fields" style="display:${data.type === "savings" ? "block" : "none"}">
-      <div class="form-group">
-        <label>Tasa anual (%)</label>
-        <input type="number" inputmode="decimal" step="0.01" id="f-rate" value="${data.annualRatePct || ""}" placeholder="Ej. 11.5">
+      <div class="sv-box">
+        <div class="sv-title">Rendimiento</div>
+        <div class="sv-grid">
+          <div class="form-group">
+            <label>Hasta este saldo</label>
+            <input type="number" inputmode="decimal" step="0.01" id="f-cap" value="${savingsRules(data).capCents ? Money.toInputValue(savingsRules(data).capCents) : ""}" placeholder="Vacío = sin tope">
+          </div>
+          <div class="form-group">
+            <label>Tasa anual (%)</label>
+            <input type="number" inputmode="decimal" step="0.01" id="f-rate" value="${data.annualRatePct || ""}" placeholder="Ej. 11.5">
+          </div>
+        </div>
+        <div class="sv-grid">
+          <div class="form-group">
+            <label>Arriba de ese saldo <span class="sv-opt">(opcional)</span></label>
+            <input type="number" inputmode="decimal" step="0.01" id="f-cap-rate" value="${savingsRules(data).aboveCapRatePct ?? ""}" placeholder="Vacío = no genera">
+          </div>
+          <div class="form-group"></div>
+        </div>
+        <div class="field-hint">La tasa de arriba aplica hasta el saldo indicado. Revisa las condiciones vigentes en la app de tu banco.</div>
       </div>
-      <div class="form-group">
-        <label>Base de días del interés</label>
-        <select id="f-basis">
-          <option value="365" ${savingsRules(data).dayBasis === 365 ? "selected" : ""}>365 días</option>
-          <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>ISR retenido anual (%)</label>
-        <input type="number" inputmode="decimal" step="0.01" id="f-isr" value="${savingsRules(data).isrPct || ""}" placeholder="0 si el banco no retiene">
+
+      <details class="sv-adv">
+        <summary>Avanzado: base de días e ISR</summary>
+        <div class="sv-grid">
+          <div class="form-group">
+            <label>Base de días</label>
+            <select id="f-basis">
+              <option value="365" ${savingsRules(data).dayBasis === 365 ? "selected" : ""}>365 días</option>
+              <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>ISR retenido (%)</label>
+            <input type="number" inputmode="decimal" step="0.01" id="f-isr" value="${savingsRules(data).isrPct || ""}" placeholder="0 si no retiene">
+          </div>
+        </div>
         <div class="field-hint">Revolut México retiene 0.90%. Pon 0 si tu banco no retiene.</div>
-      </div>
-      <div class="form-group">
-        <label>Hasta este saldo (opcional)</label>
-        <input type="number" inputmode="decimal" step="0.01" id="f-cap" value="${savingsRules(data).capCents ? Money.toInputValue(savingsRules(data).capCents) : ""}" placeholder="Vacío = sin tope">
-        <div class="field-hint">La tasa de arriba aplica hasta este saldo. Revisa las condiciones vigentes en tu app del banco.</div>
-      </div>
-      <div class="form-group">
-        <label>Arriba de ese saldo, tasa (%)</label>
-        <input type="number" inputmode="decimal" step="0.01" id="f-cap-rate" value="${savingsRules(data).aboveCapRatePct ?? ""}" placeholder="Ej. 8">
-        <div class="field-hint">Solo si pusiste “Hasta este saldo”. Vacío = lo que pase no genera nada.</div>
+      </details>
+
+      <div class="sv-prev" aria-live="polite">
+        <div><div class="sv-k">Rinde al día</div><div class="sv-v" id="f-prev-day">—</div></div>
+        <div><div class="sv-k">Rinde al mes (30 días)</div><div class="sv-v" id="f-prev-month">—</div></div>
+        <div class="sv-note" id="f-prev-note"></div>
       </div>
     </div>
 
@@ -388,6 +407,31 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
 
   refreshDateButtons();
   refreshCreditSummary();
+
+  // Vista previa del rendimiento (cuentas de ahorro)
+  function refreshSavingsPreview() {
+    const balance = Money.toCents($("#f-balance").value || "0");
+    const rate = parseFloat($("#f-rate").value || "0") || 0;
+    const capCents = Money.toCents($("#f-cap").value || "0");
+    const capRateRaw = $("#f-cap-rate").value;
+    const rules = {
+      dayBasis: parseInt($("#f-basis").value, 10) === 360 ? 360 : 365,
+      isrPct: Math.max(0, parseFloat($("#f-isr").value || "0") || 0),
+      capCents: capCents > 0 ? capCents : null,
+      aboveCapRatePct: capRateRaw === "" ? null : Math.max(0, parseFloat(capRateRaw) || 0),
+    };
+    const { net } = dailyInterestBreakdown(balance, rate, rules);
+    $("#f-prev-day").textContent = Money.format(net);
+    $("#f-prev-month").textContent = Money.format(net * 30);
+    $("#f-prev-note").textContent = rules.capCents && balance > rules.capCents
+      ? `Tu saldo supera ${Money.format(rules.capCents)}: lo de arriba gana ${rules.aboveCapRatePct ?? 0}%.`
+      : "";
+  }
+  ["#f-balance", "#f-rate", "#f-cap", "#f-cap-rate", "#f-basis", "#f-isr"].forEach((sel) => {
+    $(sel).addEventListener("input", refreshSavingsPreview);
+    $(sel).addEventListener("change", refreshSavingsPreview);
+  });
+  refreshSavingsPreview();
 
   $("[data-close]").addEventListener("click", close);
   $("#f-type").addEventListener("change", (e) => {

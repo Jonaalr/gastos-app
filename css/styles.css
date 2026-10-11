@@ -1266,3 +1266,27 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 /* Reparto: cuenta donde entró el pago de cada persona */
 .split-acc { margin: -2px 0 10px; }
 .split-acc select { width: 100%; padding: 8px 10px; border-radius: 10px; font-size: 14px; }
+
+/* Formulario de cuentas con rendimiento: bloque de tasas, avanzado y vista previa */
+.sv-box {
+  border: 1px solid var(--line, #e2e2e9); border-radius: 16px; padding: 14px;
+  margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.sv-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted, #8e8e93); margin-bottom: 8px; }
+.sv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+.sv-grid > .form-group { min-width: 0; }
+.sv-grid input, .sv-grid select { width: 100%; min-width: 0; }
+.sv-opt { color: var(--muted, #8e8e93); font-weight: 400; }
+.sv-adv { border-top: 1px solid var(--line, #e2e2e9); padding-top: 12px; margin-bottom: 14px; }
+.sv-adv summary { cursor: pointer; color: var(--muted, #8e8e93); font-size: 14px; }
+.sv-adv .sv-grid { margin-top: 12px; }
+.sv-prev {
+  background: var(--accent-soft, #e6f6ee); border-radius: 16px; padding: 14px 16px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+}
+.sv-k { font-size: 12px; color: var(--muted, #8e8e93); }
+.sv-v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent, #14a058); }
+.sv-note { grid-column: 1 / -1; font-size: 12px; color: var(--muted, #8e8e93); }
+@media (max-width: 380px) {
+  .sv-grid, .sv-prev { grid-template-columns: 1fr; }
+}
