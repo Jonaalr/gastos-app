@@ -242,21 +242,19 @@ async function renderSavingsSummary(savingsAccounts) {
   const combinedRatePct = totalBalance > 0 ? (nominalSum / totalBalance) * 100 : 0;
 
   const cnt = savingsAccounts.length;
-  // Filas con el mismo estilo: etiqueta a la izquierda y cifra grande a la derecha
-  const row = (label, value, income = false) => el("div", { class: "sum-row" }, [
-    el("div", { class: "sum-label" }, label),
-    el("div", { class: `sum-value${income ? " income" : ""}` }, value),
-  ]);
+  const tile = (label, value, { income = false, wide = false } = {}) => el("div", {
+    class: `sum-tile${income ? " income" : ""}${wide ? " wide" : ""}`,
+  }, [el("div", { class: "sum-label" }, label), el("div", { class: "sum-value" }, value)]);
   return el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Resumen de rendimientos"),
-    row("Saldo generando rendimientos", Money.format(totalBalance)),
-    row("Tasa combinada", `${combinedRatePct.toFixed(2)}% anual`),
-    el("div", { class: "sum-sub" }, `Nominal, antes de ISR, como la cotiza cada banco. ${cnt} cuenta${cnt === 1 ? "" : "s"}.`),
-    el("div", { class: "sum-group" }, [
-      row("Generando al día", Money.format(totalDaily), true),
-      row("Generando al mes", Money.format(totalMonthly), true),
-      row("Generando al año", Money.format(totalAnnual), true),
+    el("div", { class: "sum-grid" }, [
+      tile("Saldo generando", Money.format(totalBalance)),
+      tile("Tasa combinada", `${combinedRatePct.toFixed(2)}% anual`),
+      tile("Al día", Money.format(totalDaily), { income: true }),
+      tile("Al mes", Money.format(totalMonthly), { income: true }),
+      tile("Al año", Money.format(totalAnnual), { income: true, wide: true }),
     ]),
+    el("div", { class: "sum-note" }, `Tasa nominal, antes de ISR, como la cotiza cada banco. Suma de ${cnt} cuenta${cnt === 1 ? "" : "s"}.`),
   ]);
 }
 
