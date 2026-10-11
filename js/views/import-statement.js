@@ -289,8 +289,8 @@ async function renderImportStatement(root, params) {
     if (payments.length) {
       const total = payments.reduce((s, m) => s + m.amountCents, 0);
       const details = el("details", { class: "card imp-payments" }, [
-        el("summary", {}, `Pagos y abonos a la tarjeta (${payments.length}) · ${Money.format(total)} · no se importan`),
-        el("div", { class: "field-hint", style: "margin:8px 0;" }, "Son transferencias desde tus otras cuentas; si las registras desde la cuenta de origen, importarlas aquí las contaría dos veces."),
+        el("summary", {}, `Movimientos entre tus propias cuentas y cajitas (${payments.length}) · ${Money.format(total)} · no se importan`),
+        el("div", { class: "field-hint", style: "margin:8px 0;" }, "Son transferencias a o desde tus otras cuentas y movimientos de tus cajitas; si los registras desde la cuenta de origen, importarlos aquí los contaría dos veces."),
         ...payments.map((m) => el("div", { class: "imp-pay-row" }, [el("span", {}, `${DateUtil.formatShort(m.date)} · ${m.description}`), el("span", {}, Money.format(m.amountCents))])),
       ]);
       reviewBox.appendChild(details);
