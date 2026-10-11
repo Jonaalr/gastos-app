@@ -198,11 +198,22 @@ const DEFAULT_DAY_BASIS = 365;
 function savingsRules(account) {
   const dayBasis = Number(account.interestDayBasis) === 360 ? 360 : DEFAULT_DAY_BASIS;
   const isrPct = Number.isFinite(Number(account.isrPct)) && account.isrPct !== null ? Number(account.isrPct) : 0;
-  return { dayBasis, isrPct };
+  const capCents = Number(account.capCents) > 0 ? Number(account.capCents) : null;
+  const aboveCapRatePct = capCents && account.aboveCapRatePct !== null && account.aboveCapRatePct !== undefined && account.aboveCapRatePct !== ""
+    ? Number(account.aboveCapRatePct) : null;
+  return { dayBasis, isrPct, capCents, aboveCapRatePct };
 }
 
 function dailyInterestBreakdown(balanceCents, annualRatePct, rules = { dayBasis: DEFAULT_DAY_BASIS, isrPct: 0 }) {
-  const gross = Math.round(balanceCents * (annualRatePct / 100) / rules.dayBasis);
+  // Con tope: la tasa aplica solo hasta el tope; lo que pase se paga a la tasa del excedente (0 si no hay)
+  let gross;
+  if (rules.capCents && balanceCents > rules.capCents) {
+    const excess = balanceCents - rules.capCents;
+    const aboveRate = rules.aboveCapRatePct ?? 0;
+    gross = Math.round((rules.capCents * (annualRatePct / 100) + excess * (aboveRate / 100)) / rules.dayBasis);
+  } else {
+    gross = Math.round(balanceCents * (annualRatePct / 100) / rules.dayBasis);
+  }
   const tax = Math.round(balanceCents * (rules.isrPct / 100) / ISR_DAY_BASIS);
   return { gross, tax, net: gross - tax };
 }
@@ -335,6 +346,16 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <input type="number" inputmode="decimal" step="0.01" id="f-isr" value="${savingsRules(data).isrPct || ""}" placeholder="0 si el banco no retiene">
         <div class="field-hint">Revolut México retiene 0.90%. Pon 0 si tu banco no retiene.</div>
       </div>
+      <div class="form-group">
+        <label>Tope de saldo con esta tasa (opcional)</label>
+        <input type="number" inputmode="decimal" step="0.01" id="f-cap" value="${savingsRules(data).capCents ? Money.toInputValue(savingsRules(data).capCents) : ""}" placeholder="Vacío = sin tope">
+        <div class="field-hint">Si el banco paga la tasa solo hasta cierto saldo, pon ese monto aquí. Revisa las condiciones vigentes en tu app del banco.</div>
+      </div>
+      <div class="form-group">
+        <label>Tasa sobre lo que pase el tope (%)</label>
+        <input type="number" inputmode="decimal" step="0.01" id="f-cap-rate" value="${savingsRules(data).aboveCapRatePct ?? ""}" placeholder="Ej. 8">
+        <div class="field-hint">Solo si pusiste tope. Déjalo vacío si lo que pase del tope no genera nada.</div>
+      </div>
     </div>
 
     <div class="btn-row mt-8">
@@ -454,6 +475,8 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
       annualRatePct: type === "savings" ? parseFloat($("#f-rate").value || "0") || null : null,
       interestDayBasis: type === "savings" ? (parseInt($("#f-basis").value, 10) === 360 ? 360 : 365) : null,
       isrPct: type === "savings" ? Math.max(0, parseFloat($("#f-isr").value || "0") || 0) : null,
+      capCents: type === "savings" && Money.toCents($("#f-cap").value || "0") > 0 ? Money.toCents($("#f-cap").value) : null,
+      aboveCapRatePct: type === "savings" && $("#f-cap-rate").value !== "" ? Math.max(0, parseFloat($("#f-cap-rate").value) || 0) : null,
       rateUpdatedAt: type === "savings" ? DateUtil.todayISO() : null,
     };
     if (existing) record.id = existing.id;
