@@ -66,7 +66,7 @@ async function renderReports(root, params) {
     onToggle: () => { reportsFiltersOpen = !reportsFiltersOpen; Router.render(); },
     items: [
       iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, go)),
-      iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountSheet(accounts, accF, go)),
+      iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountFilterSheet(accounts, accF, go)),
     ],
   })) root.appendChild(node);
 

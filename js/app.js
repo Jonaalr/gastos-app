@@ -149,7 +149,7 @@ function openCategorySheet(categories, catF, go) {
   ]);
 }
 /** Hoja de Cuenta */
-function openAccountSheet(accounts, accF, go) {
+function openAccountFilterSheet(accounts, accF, go) {
   const backdrop = openFilterSheet("Cuenta", [
     filterOpt("Todas las cuentas", !accF, () => { backdrop.remove(); go({ acc: "" }); }),
     ...accounts

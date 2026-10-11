@@ -68,7 +68,7 @@ async function renderTransactions(root, params) {
       items: [
         iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, (c) => goTo(c))),
         iconChip("tag", `${catName} ▾`, !!catF, () => openCategorySheet(categories, catF, (c) => goTo(c))),
-        iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountSheet(accounts, accF, (c) => goTo(c))),
+        iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountFilterSheet(accounts, accF, (c) => goTo(c))),
       ],
     });
   };

@@ -231,6 +231,12 @@ async function renderSavingsSummary(savingsAccounts) {
 }
 
 async function openAccountSheet({ existing = null, onSaved = null } = {}) {
+  // Antes de editar una cuenta de ahorro, se capitalizan sus rendimientos hasta hoy,
+  // para que al guardar el saldo y la fecha de referencia no se pierdan días de interés.
+  if (existing && existing.type === "savings") {
+    await capitalizeSavings();
+    existing = (await DB.get("accounts", existing.id)) || existing;
+  }
   const data = existing || {
     name: "",
     type: "debit",
