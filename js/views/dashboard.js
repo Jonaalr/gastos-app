@@ -327,6 +327,8 @@ const BANK_LOGOS = [
   [/bbva/i, "bbva"],
   [/mercado\s?pago/i, "mercadopago"],
   [/ual[aá]/i, "uala"],
+  [/mifel/i, "mifel"],
+  [/broxel/i, "broxel"],
   [/spin/i, "spin"],
   [/cashi/i, "cashi"],
 ];
