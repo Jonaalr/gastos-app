@@ -1290,3 +1290,12 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 @media (max-width: 380px) {
   .sv-grid, .sv-prev { grid-template-columns: 1fr; }
 }
+
+/* Resumen de rendimientos: filas con la misma tipografía */
+.sum-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line, rgba(128,128,128,.2)); }
+.sum-row:last-child { border-bottom: 0; }
+.sum-label { font-size: 15px; color: var(--text-dim); min-width: 0; }
+.sum-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.sum-value.income { color: var(--income); }
+.sum-sub { font-size: 12px; color: var(--text-dim); margin: -4px 0 6px; }
+.sum-group { margin-top: 8px; border-top: 1px solid var(--line, rgba(128,128,128,.2)); }

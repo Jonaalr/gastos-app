@@ -241,17 +241,22 @@ async function renderSavingsSummary(savingsAccounts) {
   }, 0);
   const combinedRatePct = totalBalance > 0 ? (nominalSum / totalBalance) * 100 : 0;
 
+  const cnt = savingsAccounts.length;
+  // Filas con el mismo estilo: etiqueta a la izquierda y cifra grande a la derecha
+  const row = (label, value, income = false) => el("div", { class: "sum-row" }, [
+    el("div", { class: "sum-label" }, label),
+    el("div", { class: `sum-value${income ? " income" : ""}` }, value),
+  ]);
   return el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Resumen de rendimientos"),
-    el("div", { class: "stat-row" }, [
-      el("div", { class: "stat-box" }, [el("div", { class: "label" }, "Saldo generando rendimientos"), el("div", { class: "value" }, Money.format(totalBalance))]),
-      el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al mes"), el("div", { class: "value" }, Money.format(totalMonthly))]),
+    row("Saldo generando rendimientos", Money.format(totalBalance)),
+    row("Tasa combinada", `${combinedRatePct.toFixed(2)}% anual`),
+    el("div", { class: "sum-sub" }, `Nominal, antes de ISR, como la cotiza cada banco. ${cnt} cuenta${cnt === 1 ? "" : "s"}.`),
+    el("div", { class: "sum-group" }, [
+      row("Generando al día", Money.format(totalDaily), true),
+      row("Generando al mes", Money.format(totalMonthly), true),
+      row("Generando al año", Money.format(totalAnnual), true),
     ]),
-    el("div", { class: "stat-row", style: "margin-top:10px;" }, [
-      el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al año"), el("div", { class: "value" }, Money.format(totalAnnual))]),
-      el("div", { class: "stat-box" }, [el("div", { class: "label" }, `Por día (${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"})`), el("div", { class: "value" }, Money.format(totalDaily))]),
-    ]),
-    el("div", { class: "text-dim", style: "font-size:12px; margin-top:8px;" }, `Tasa combinada: ${combinedRatePct.toFixed(2)}% anual antes de ISR, como la cotiza cada banco, ponderada por saldo entre ${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"}`),
   ]);
 }
 
