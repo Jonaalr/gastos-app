@@ -347,14 +347,14 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <div class="field-hint">Revolut México retiene 0.90%. Pon 0 si tu banco no retiene.</div>
       </div>
       <div class="form-group">
-        <label>Tope de saldo con esta tasa (opcional)</label>
+        <label>Hasta este saldo (opcional)</label>
         <input type="number" inputmode="decimal" step="0.01" id="f-cap" value="${savingsRules(data).capCents ? Money.toInputValue(savingsRules(data).capCents) : ""}" placeholder="Vacío = sin tope">
-        <div class="field-hint">Si el banco paga la tasa solo hasta cierto saldo, pon ese monto aquí. Revisa las condiciones vigentes en tu app del banco.</div>
+        <div class="field-hint">La tasa de arriba aplica hasta este saldo. Revisa las condiciones vigentes en tu app del banco.</div>
       </div>
       <div class="form-group">
-        <label>Tasa sobre lo que pase el tope (%)</label>
+        <label>Arriba de ese saldo, tasa (%)</label>
         <input type="number" inputmode="decimal" step="0.01" id="f-cap-rate" value="${savingsRules(data).aboveCapRatePct ?? ""}" placeholder="Ej. 8">
-        <div class="field-hint">Solo si pusiste tope. Déjalo vacío si lo que pase del tope no genera nada.</div>
+        <div class="field-hint">Solo si pusiste “Hasta este saldo”. Vacío = lo que pase no genera nada.</div>
       </div>
     </div>
 
