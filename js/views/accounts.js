@@ -334,36 +334,36 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <div class="sv-title">Rendimiento</div>
         <div class="sv-grid">
           <div class="form-group">
-            <label>Hasta este saldo</label>
+            <label for="f-cap">Hasta este saldo</label>
             <input type="number" inputmode="decimal" step="0.01" id="f-cap" value="${savingsRules(data).capCents ? Money.toInputValue(savingsRules(data).capCents) : ""}" placeholder="Vacío = sin tope">
           </div>
           <div class="form-group">
-            <label>Tasa anual (%)</label>
+            <label for="f-rate">Tasa anual (%)</label>
             <input type="number" inputmode="decimal" step="0.01" id="f-rate" value="${data.annualRatePct || ""}" placeholder="Ej. 11.5">
           </div>
         </div>
         <div class="sv-grid">
           <div class="form-group">
-            <label>Arriba de ese saldo <span class="sv-opt">(opcional)</span></label>
+            <label for="f-cap-rate">Arriba de ese saldo</label>
             <input type="number" inputmode="decimal" step="0.01" id="f-cap-rate" value="${savingsRules(data).aboveCapRatePct ?? ""}" placeholder="Vacío = no genera">
           </div>
           <div class="form-group"></div>
         </div>
-        <div class="field-hint">La tasa de arriba aplica hasta el saldo indicado. Revisa las condiciones vigentes en la app de tu banco.</div>
+        <div class="field-hint">La segunda tasa es opcional: vacía, lo que pase de ese saldo no genera. Revisa las condiciones vigentes en la app de tu banco.</div>
       </div>
 
       <details class="sv-adv">
         <summary>Avanzado: base de días e ISR</summary>
         <div class="sv-grid">
           <div class="form-group">
-            <label>Base de días</label>
+            <label for="f-basis">Base de días</label>
             <select id="f-basis">
               <option value="365" ${savingsRules(data).dayBasis === 365 ? "selected" : ""}>365 días</option>
               <option value="360" ${savingsRules(data).dayBasis === 360 ? "selected" : ""}>360 días</option>
             </select>
           </div>
           <div class="form-group">
-            <label>ISR retenido (%)</label>
+            <label for="f-isr">ISR retenido (%)</label>
             <input type="number" inputmode="decimal" step="0.01" id="f-isr" value="${savingsRules(data).isrPct || ""}" placeholder="0 si no retiene">
           </div>
         </div>
