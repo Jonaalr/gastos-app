@@ -232,8 +232,14 @@ async function renderSavingsSummary(savingsAccounts) {
   const totalMonthly = savingsAccounts.reduce((s, a) => s + computeMonthlyInterestCents(a), 0);
   // Año calendario: los mismos 365 días que usa el ISR de la app
   const totalAnnual = totalDaily * 365;
-  // Tasa combinada: rendimiento neto anual sobre el saldo total (promedio ponderado por saldo)
-  const combinedRatePct = totalBalance > 0 ? (totalAnnual / totalBalance) * 100 : 0;
+  // Tasa combinada nominal: cada cuenta se expresa en su propia base (360 o 365 días),
+  // igual que cotiza el banco, y se promedia ponderando por saldo. Antes de ISR.
+  const nominalSum = savingsAccounts.reduce((s, a) => {
+    const rules = savingsRules(a);
+    const { gross } = dailyInterestBreakdown(a.balanceCents, a.annualRatePct, rules);
+    return s + gross * rules.dayBasis;
+  }, 0);
+  const combinedRatePct = totalBalance > 0 ? (nominalSum / totalBalance) * 100 : 0;
 
   return el("div", { class: "card" }, [
     el("div", { class: "card-title" }, "Resumen de rendimientos"),
@@ -245,7 +251,7 @@ async function renderSavingsSummary(savingsAccounts) {
       el("div", { class: "stat-box income" }, [el("div", { class: "label" }, "Generando al año"), el("div", { class: "value" }, Money.format(totalAnnual))]),
       el("div", { class: "stat-box" }, [el("div", { class: "label" }, `Por día (${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"})`), el("div", { class: "value" }, Money.format(totalDaily))]),
     ]),
-    el("div", { class: "text-dim", style: "font-size:12px; margin-top:8px;" }, `Tasa combinada efectiva: ${combinedRatePct.toFixed(2)}% anual neto, promedio ponderado por saldo entre ${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"}`),
+    el("div", { class: "text-dim", style: "font-size:12px; margin-top:8px;" }, `Tasa combinada: ${combinedRatePct.toFixed(2)}% anual antes de ISR, como la cotiza cada banco, ponderada por saldo entre ${savingsAccounts.length} cuenta${savingsAccounts.length === 1 ? "" : "s"}`),
   ]);
 }
 
