@@ -101,7 +101,10 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
     // En un domiciliado los pagos se llevan por ciclo (Dinero), no con "Ya te pagó"
     paid: new Set(data.split && !data.isRecurring ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
+    paidAcc: new Map(), // personId -> cuenta donde entró su pago
   };
+  const payAccounts = () => accounts.filter((a) => !a.archived && a.type !== "credit").sort(accountPickerCompare);
+  const defaultPayAccountId = () => payAccounts()[0]?.id || null;
 
   /** Calcula el reparto a partir del monto y la forma elegida. Devuelve error o el reparto. */
   function computeSplit() {
@@ -150,19 +153,26 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       .map((p) => `<button type="button" class="chip ${split.selected.has(p.id) ? "on" : ""}" data-person="${p.id}">${escapeHtml(p.name)}</button>`)
       .join("");
 
+    const recurringNow = !!sheet.querySelector("#f-recurring")?.checked;
     const rows = [...split.selected]
       .map((id) => {
-        const paid = split.paid.has(id);
+        const paid = split.paid.has(id) && !recurringNow;
         const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
+        const accSel = paid
+          ? `<div class="split-acc"><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
+              .map((a) => `<option value="${a.id}" ${a.id === (split.paidAcc.get(id) || defaultPayAccountId()) ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
+              .join("")}</select></div>`
+          : "";
+        const chk = recurringNow ? "" : `<input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>`;
         return `<div class="split-row">
           <span>${escapeHtml(nameOf(id))}</span>
           <div class="split-amt">
             <input type="number" inputmode="decimal" step="0.01" data-share="${id}" value="${value}" ${split.mode === "equal" || paid ? "readonly" : ""}>
-            <input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>
+            ${chk}
           </div>
-        </div>`;
+        </div>${accSel}`;
       })
-      .join("");
+      .join("") + (recurringNow && split.selected.size ? `<div class="field-hint" style="margin:6px 0;">Los pagos de un domiciliado se registran por cargo en Dinero.</div>` : "");
 
     box.innerHTML = `
       <div class="split-chips">${chips || '<span class="field-hint">Aún no tienes personas. Agrega una abajo.</span>'}</div>
@@ -209,9 +219,16 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     box.querySelectorAll("[data-paid]").forEach((input) => {
       input.addEventListener("change", () => {
         const id = parseInt(input.dataset.paid, 10);
-        if (input.checked) split.paid.add(id);
-        else split.paid.delete(id);
+        if (input.checked) {
+          split.paid.add(id);
+          if (!split.paidAcc.get(id)) split.paidAcc.set(id, defaultPayAccountId());
+        } else split.paid.delete(id);
         renderSplitBox();
+      });
+    });
+    box.querySelectorAll("[data-paid-acc]").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        split.paidAcc.set(parseInt(sel.dataset.paidAcc, 10), sel.value ? parseInt(sel.value, 10) : null);
       });
     });
 
@@ -394,6 +411,10 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     // "Ya me pagó": cada persona marcada genera un cobro en Por cobrar; al desmarcarla, el cobro se quita
     const recurringNow = currentType === "expense" && sheet.querySelector("#f-recurring").checked;
     if (splitRecord && recurringNow) splitRecord.participants.forEach((p) => { p.paid = false; });
+    if (splitRecord && splitRecord.participants.some((p) => p.paid && p.shareCents > 0 && !(split.paidAcc.get(p.personId) || defaultPayAccountId()))) {
+      toast("Elige la cuenta donde entró el pago", "error");
+      return;
+    }
     const prevParts = existing?.split?.participants || [];
     const curIds = new Set(splitRecord ? splitRecord.participants.map((p) => p.personId) : []);
     const txDate = sheet.querySelector("#f-date").value || DateUtil.todayISO();
@@ -407,15 +428,38 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
             await DB.put("collections", { ...(await DB.get("collections", prevCol)), ...fields, id: prevCol });
             p.collectionId = prevCol;
           } else {
-            p.collectionId = await DB.add("collections", fields);
+            const accountId = split.paidAcc.get(p.personId) || defaultPayAccountId();
+            p.collectionId = await DB.add("collections", { ...fields, accountId });
+            // Reembolso: entra a esa cuenta (saldo y Movimientos), no cuenta como ingreso
+            const txId = await saveTransactionWithBalances({
+              type: "income",
+              amountCents: p.shareCents,
+              accountId,
+              toAccountId: null,
+              categoryId: null,
+              merchant: `Reembolso · ${people.find((x) => x.id === p.personId)?.name || "—"}`,
+              note: payNote,
+              date: txDate,
+              isRecurring: false,
+              recurringDay: null,
+              attachment: null,
+              source: "reembolso",
+              reimbursement: true,
+              pendingSplit: false,
+              balanceApplied: true,
+              createdAt: new Date().toISOString(),
+            });
+            const saved = await DB.get("collections", p.collectionId);
+            saved.reimbursementTxId = txId;
+            await DB.put("collections", saved);
           }
         } else if (prevCol) {
-          await DB.delete("collections", prevCol);
+          await removePaidCollection(prevCol);
         }
       }
     }
     for (const prev of prevParts) {
-      if (prev.collectionId && !curIds.has(prev.personId)) await DB.delete("collections", prev.collectionId);
+      if (prev.collectionId && !curIds.has(prev.personId)) await removePaidCollection(prev.collectionId);
     }
 
     const record = {
@@ -464,6 +508,19 @@ async function saveTransactionWithBalances(record, previous) {
   const id = await DB.put("transactions", record);
   await applyBalanceDelta({ ...record, id }, +1);
   return id;
+}
+
+/** Quita un cobro de "ya pagó" y el reembolso que creó (revirtiendo el saldo de su cuenta) */
+async function removePaidCollection(colId) {
+  const col = await DB.get("collections", colId);
+  if (col && col.reimbursementTxId) {
+    const tx = await DB.get("transactions", col.reimbursementTxId);
+    if (tx) {
+      await applyBalanceDelta(tx, -1);
+      await DB.delete("transactions", tx.id);
+    }
+  }
+  await DB.delete("collections", colId);
 }
 
 async function applyBalanceDelta(tx, sign) {

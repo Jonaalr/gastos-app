@@ -1262,3 +1262,7 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 @media (prefers-color-scheme: dark) {
   .dom-line-meta { color: #8E8E93; }
 }
+
+/* Reparto: cuenta donde entró el pago de cada persona */
+.split-acc { margin: -2px 0 10px; }
+.split-acc select { width: 100%; padding: 8px 10px; border-radius: 10px; font-size: 14px; }
