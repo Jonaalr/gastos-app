@@ -352,15 +352,15 @@ async function renderImportStatement(root, params) {
     chk.checked = row.selected;
     chk.addEventListener("change", () => { row.selected = chk.checked; wrap.classList.toggle("off", !row.selected); refreshBar(); });
 
+    // Ingresos: categoría de ingreso (Sueldo, Regalo, Herencia…). Transferencias y reembolsos: sin categoría.
+    const isIncome = row.refund && !row.reimburse;
+    const shownOptions = isIncome ? incomeCatOptions : catOptions;
     const select = el("select", { class: "imp-cat" }, [
       el("option", { value: "" }, "Sin categoría"),
       ...shownOptions.map((o) => el("option", { value: o.id }, o.label)),
       el("option", { value: "__new__" }, "+ Nueva categoría…"),
     ]);
     select.value = row.categoryId || "";
-    // Ingresos: categoría de ingreso (Sueldo, Regalo, Herencia…). Transferencias y reembolsos: sin categoría.
-    const isIncome = row.refund && !row.reimburse;
-    const shownOptions = isIncome ? incomeCatOptions : catOptions;
     if (row.transfer || row.reimburse) select.style.display = "none";
     select.addEventListener("change", () => {
       if (select.value === "__new__") {
