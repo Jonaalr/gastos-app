@@ -109,13 +109,11 @@
     // ---- Renglones de la sección "Detalle de movimientos en tu cuenta" ----
     const rows = [];
     let inSection = false;
-    // Líneas de texto desde el último renglón en blanco (puede ser el nombre del siguiente movimiento)
-    let block = [];
     for (const rawLine of lines) {
       const line = rawLine.replace(/\s+$/, "");
-      if (!line.trim()) { block = []; continue; }
-      if (SECTION_START.test(line)) { inSection = true; block = []; continue; }
-      if (inSection && SECTION_END.test(line)) { inSection = false; block = []; continue; }
+      if (!line.trim()) continue;
+      if (SECTION_START.test(line)) { inSection = true; continue; }
+      if (inSection && SECTION_END.test(line)) { inSection = false; continue; }
       if (!inSection) continue;
       if (holder && line.trim() === holder) continue;
       if (PAGE_NOISE.test(line)) continue;
@@ -126,10 +124,13 @@
         if (!month) { warnings.push(`No se entendió la fecha de un renglón: "${line.trim().slice(0, 30)}…"`); continue; }
         // Si el monto va en la misma línea de la fecha, el nombre suele ir justo arriba: es de este movimiento
         const onlyAmount = /^\s*[+-]\$[\d,]+\.\d{2}\s*$/.test(row[4]);
+        // El detalle de SPEI termina en "Clave de referencia …": lo que sigue antes de esta fecha es el nombre de este movimiento
         let titleBefore = [];
-        if (onlyAmount && rows.length && block.length && !DETAIL_START.test(block[0])) {
+        if (onlyAmount && rows.length) {
           const prev = rows[rows.length - 1];
-          if (prev.extra.length >= block.length) titleBefore = prev.extra.splice(prev.extra.length - block.length, block.length);
+          let cut = -1;
+          prev.extra.forEach((t, i) => { if (/Clave de referencia/i.test(t)) cut = i; });
+          if (cut >= 0 && cut < prev.extra.length - 1) titleBefore = prev.extra.splice(cut + 1);
         }
         rows.push({
           date: `${row[3]}-${String(month).padStart(2, "0")}-${row[1]}`,
@@ -139,7 +140,6 @@
           amountCents: null,
           sign: null,
         });
-        block = [];
         continue;
       }
       if (!rows.length) continue;
@@ -151,7 +151,6 @@
         continue;
       }
       last.extra.push(line.trim());
-      block.push(line.trim());
     }
 
     // Monto: al final del renglón de fecha, o en la línea que sigue
