@@ -110,17 +110,37 @@ async function renderImportStatement(root, params) {
     return;
   }
 
-  // ---------- Paso 1: cuenta + archivo ----------
+  // ---------- Paso 1: archivo (la cuenta se detecta sola y tú confirmas) ----------
   const accountSelect = el("select", { id: "imp-account" }, activeAccounts.map((a) => el("option", { value: a.id }, accountPickerLabel(a))));
   accountSelect.value = state.accountId;
   const fileInput = el("input", { type: "file", id: "imp-file", accept: "application/pdf,.pdf", style: "display:none;" });
   const status = el("div", { class: "field-hint", style: "margin-top:10px;" });
-  const pickCard = el("div", { class: "card" }, [
+  const confirmBox = el("div", { style: "display:none;margin-top:12px;" });
+  const changeBox = el("div", { style: "display:none;margin-top:12px;" }, [
     el("div", { class: "form-group" }, [el("label", {}, "¿A qué cuenta pertenece?"), accountSelect]),
+    el("button", { class: "btn", id: "imp-use-account" }, "Usar esta cuenta"),
+  ]);
+  // Formatos agrupados: tarjetas de crédito y cuentas de débito
+  const formatGroups = {};
+  for (const imp of StatementImporters.list) {
+    const parts = String(imp.label).split(" · ");
+    const bank = parts[0];
+    const kind = parts[1] || "Otros";
+    (formatGroups[kind] = formatGroups[kind] || new Set()).add(bank);
+  }
+  const formatsBox = el("div", { class: "field-hint", style: "margin-top:14px;" },
+    Object.entries(formatGroups).map(([kind, banks]) =>
+      el("div", { style: "margin-top:4px;" }, `${kind.charAt(0).toUpperCase()}${kind.slice(1)}: ${[...banks].join(", ")}`)
+    )
+  );
+  const pickCard = el("div", { class: "card" }, [
     el("button", { class: "btn", id: "imp-pick" }, "Elegir estado de cuenta (PDF)"),
     fileInput,
     status,
-    el("div", { class: "field-hint" }, `Formatos que reconozco: ${StatementImporters.list.map((i) => i.label).join(", ")}.`),
+    confirmBox,
+    changeBox,
+    el("div", { class: "field-hint", style: "margin-top:14px;" }, "Formatos que reconozco:"),
+    formatsBox,
   ]);
   root.appendChild(pickCard);
   const reviewBox = el("div", { id: "imp-review" });
@@ -128,14 +148,23 @@ async function renderImportStatement(root, params) {
 
   accountSelect.addEventListener("change", () => {
     state.accountId = parseInt(accountSelect.value, 10);
-    if (state.parsed) { prepareRows(); renderReview(); }
   });
+  // Confirmar la cuenta (detectada o elegida) y mostrar la revisión
+  function useAccount() {
+    confirmBox.style.display = "none";
+    changeBox.style.display = "none";
+    prepareRows();
+    renderReview();
+  }
+  changeBox.querySelector("#imp-use-account").addEventListener("click", useAccount);
   root.querySelector("#imp-pick").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
     fileInput.value = "";
     if (!file) return;
     reviewBox.innerHTML = "";
+    confirmBox.style.display = "none";
+    changeBox.style.display = "none";
     state.parsed = null;
     status.textContent = "Leyendo estado de cuenta…";
     try {
@@ -156,16 +185,30 @@ async function renderImportStatement(root, params) {
       }
       state.importer = importer;
       state.parsed = parsed;
-      // Si ya importaste otro estado de esta tarjeta, elegir su cuenta automáticamente
-      const match = activeAccounts.find((a) => parsed.info.last4 && a.statementLast4 === parsed.info.last4);
-      if (match) { state.accountId = match.id; accountSelect.value = match.id; }
-      else if (parsed.info.accountType === "debit") {
-        const debit = activeAccounts.find((a) => a.type === "debit");
-        if (debit) { state.accountId = debit.id; accountSelect.value = debit.id; }
-      }
+      // Detectar la cuenta: la que ya tiene el mismo número de tarjeta, o tu débito si es cuenta de débito
+      let detected = activeAccounts.find((a) => parsed.info.last4 && a.statementLast4 === parsed.info.last4) || null;
+      if (!detected && parsed.info.accountType === "debit") detected = activeAccounts.find((a) => a.type === "debit") || null;
       status.textContent = "";
-      prepareRows();
-      renderReview();
+      if (detected) {
+        state.accountId = detected.id;
+        accountSelect.value = detected.id;
+        confirmBox.innerHTML = "";
+        confirmBox.style.display = "block";
+        confirmBox.appendChild(el("div", { class: "form-group" }, `Detecté que es tu cuenta: ${accountPickerLabel(detected)}. ¿Es la correcta?`));
+        confirmBox.appendChild(el("div", { style: "display:flex;gap:10px;" }, [
+          el("button", { class: "btn", id: "imp-ok-account", style: "flex:1;" }, "Sí, es esta"),
+          el("button", { class: "btn btn-secondary", id: "imp-change-account", style: "flex:1;" }, "No, cambiar"),
+        ]));
+        confirmBox.querySelector("#imp-ok-account").addEventListener("click", useAccount);
+        confirmBox.querySelector("#imp-change-account").addEventListener("click", () => {
+          confirmBox.style.display = "none";
+          changeBox.style.display = "block";
+        });
+      } else {
+        // No la detecté: elige tú la cuenta
+        changeBox.style.display = "block";
+        status.textContent = "No pude detectar a qué cuenta pertenece. Elígela abajo.";
+      }
     } catch (err) {
       console.error(err);
       status.textContent = err && err.name === "PasswordException" ? "No se pudo abrir: contraseña incorrecta." : "No pude leer ese archivo. ¿Es un PDF de estado de cuenta?";
