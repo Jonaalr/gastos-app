@@ -37,6 +37,7 @@ const Router = {
     const renderFn = Router.routes[path] || Router.routes["/dashboard"];
     Router.current = path;
     document.body.dataset.route = path;
+    Router.syncNavAutoHide(path);
     Router.updateNav(path);
 
     const root = document.getElementById("view-root");
@@ -60,6 +61,13 @@ const Router = {
     }
   },
 
+  /** Secciones donde la barra inferior se oculta al bajar y reaparece al subir */
+  syncNavAutoHide(path) {
+    const auto = Router.AUTO_HIDE_NAV.includes(path);
+    document.body.classList.toggle("nav-hidden", auto);
+    Router.lastScrollY = window.scrollY;
+  },
+
   updateNav(path) {
     document.querySelectorAll(".nav-item").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.path === (typeof navActivePath === "function" ? navActivePath(path) : path));
@@ -79,5 +87,17 @@ window.addEventListener("hashchange", () => {
   Router.guard = null;
   Router.render();
 });
+
+Router.AUTO_HIDE_NAV = ["/reports", "/transactions", "/budgets"];
+Router.lastScrollY = 0;
+window.addEventListener("scroll", () => {
+  if (!Router.AUTO_HIDE_NAV.includes(document.body.dataset.route)) return;
+  const y = window.scrollY;
+  const dy = y - Router.lastScrollY;
+  Router.lastScrollY = y;
+  if (y <= 8) document.body.classList.remove("nav-hidden");
+  else if (dy > 4) document.body.classList.add("nav-hidden");
+  else if (dy < -4) document.body.classList.remove("nav-hidden");
+}, { passive: true });
 
 window.Router = Router;
