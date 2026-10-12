@@ -90,11 +90,17 @@ window.addEventListener("hashchange", () => {
 
 Router.AUTO_HIDE_NAV = ["/reports", "/transactions", "/budgets", "/accounts", "/debts", "/receivables", "/calendar"];
 Router.lastScrollY = 0;
+Router.bounceUntil = 0;
 window.addEventListener("scroll", () => {
   if (!Router.AUTO_HIDE_NAV.includes(document.body.dataset.route)) return;
   const y = window.scrollY;
   const dy = y - Router.lastScrollY;
   Router.lastScrollY = y;
+  // Rebote de iOS al llegar al final: no cuenta como subir, la barra se queda como estaba
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  if (y > max + 1) { Router.bounceUntil = Date.now() + 700; return; }
+  if (Date.now() < (Router.bounceUntil || 0) && y >= max - 80) return;
+  if (y < 0) return;
   if (y <= 8) document.body.classList.remove("nav-hidden");
   else if (dy > 4) document.body.classList.add("nav-hidden");
   else if (dy < -4) document.body.classList.remove("nav-hidden");
