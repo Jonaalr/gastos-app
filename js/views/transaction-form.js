@@ -197,7 +197,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       </div>
       ${rows ? `<div class="split-rows">${rows}</div>` : ""}
       ${[...split.selected].some((id) => split.paid.has(id) && !split.paidInitial.has(id))
-        ? `<label class="field-hint" style="display:flex;gap:8px;align-items:center;margin:10px 0 0;"><input type="checkbox" id="split-old-pay" ${split.oldPay ? "checked" : ""}> Pago de un mes anterior (no cambiar el saldo de la cuenta)</label>`
+        ? `<label class="checkbox-row" style="margin:10px 0 0;"><input type="checkbox" id="split-old-pay" ${split.oldPay ? "checked" : ""}> Pago de un mes anterior (no cambiar el saldo de la cuenta)</label>`
         : ""}
       <div class="field-hint" id="split-summary" style="margin-top:10px;font-size:13px;"></div>
     `;
