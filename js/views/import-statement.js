@@ -94,7 +94,8 @@ async function renderImportStatement(root, params) {
   };
 
   root.appendChild(
-    el("div", { class: "topbar" }, [
+    el("div", { class: "topbar", style: "align-items:center;justify-content:flex-start;" }, [
+      el("button", { type: "button", class: "import-back", "aria-label": "Regresar a Estados de cuenta", onclick: () => Router.navigate("/statements") }, "‹"),
       el("div", {}, [el("h1", {}, "Importar estado de cuenta"), el("div", { class: "subtitle" }, "El PDF se lee en tu teléfono, no se sube a ningún lado")]),
     ])
   );
