@@ -389,7 +389,7 @@ async function renderImportStatement(root, params) {
 
     const tags = row.transfer ? [] : [shareBtn];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
-    if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Devolución"));
+    if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Ingreso"));
     if (row.transfer) tags.push(el("span", { class: "imp-tag" }, "Pago de tarjeta · no es gasto"));
     if (row.dup) tags.push(el("span", { class: "imp-tag warn" }, row.dup.label));
 
