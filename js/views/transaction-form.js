@@ -112,6 +112,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     paidInitial: new Set(pending ? [...pending.paidIds] : linkedPaid ? [...linkedPaid] : []), // ya pagados al abrir (su pago ya está registrado)
     pendingCycleId: pending ? pending.cycle.id : linkedPaid ? data.cycleId : null,
     paidAcc: new Map(), // personId -> cuenta donde entró su pago
+    oldPay: false, // pago de un mes anterior: queda en el historial y no cambia el saldo
   };
   const payAccounts = () => accounts.filter((a) => !a.archived && a.type !== "credit").sort(accountPickerCompare);
   const defaultPayAccountId = () => payAccounts()[0]?.id || null;
@@ -195,8 +196,12 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
         <button type="button" data-mode="manual" class="${split.mode === "manual" ? "active" : ""}">Montos</button>
       </div>
       ${rows ? `<div class="split-rows">${rows}</div>` : ""}
+      ${[...split.selected].some((id) => split.paid.has(id) && !split.paidInitial.has(id))
+        ? `<label class="field-hint" style="display:flex;gap:8px;align-items:center;margin:10px 0 0;"><input type="checkbox" id="split-old-pay" ${split.oldPay ? "checked" : ""}> Pago de un mes anterior (no cambiar el saldo de la cuenta)</label>`
+        : ""}
       <div class="field-hint" id="split-summary" style="margin-top:10px;font-size:13px;"></div>
     `;
+    box.querySelector("#split-old-pay")?.addEventListener("change", (e) => { split.oldPay = e.target.checked; });
 
     box.querySelectorAll("[data-person]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -488,6 +493,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
             const remaining = share - cols.reduce((s, c) => s + c.amountCents, 0);
             if (remaining > 0) {
               await recordSharePayment({
+                balanceApplied: !split.oldPay,
                 personId: p.personId,
                 amountCents: remaining,
                 accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
@@ -527,6 +533,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
                 alreadyPaid.push(personName);
               } else {
                 await recordSharePayment({
+                balanceApplied: !split.oldPay,
                   personId: p.personId,
                   amountCents: target.remaining,
                   accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
@@ -550,6 +557,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
             p.collectionId = prevCol;
           } else {
             p.collectionId = await recordSharePayment({
+                balanceApplied: !split.oldPay,
               personId: p.personId,
               amountCents: p.shareCents,
               accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
@@ -665,7 +673,7 @@ async function nextOpenCycleFor(txId, personId, shareCents) {
 }
 
 /** Registra el cobro de una persona (con cuenta) y su reembolso. Devuelve el id del cobro. */
-async function recordSharePayment({ personId, amountCents, accountId, date, note, cycleId = null, personName }) {
+async function recordSharePayment({ personId, amountCents, accountId, date, note, cycleId = null, personName, balanceApplied = true }) {
   const colId = await DB.add("collections", { personId, amountCents, method: "transfer", date, note, accountId, cycleId, createdAt: new Date().toISOString() });
   const txId = await saveTransactionWithBalances({
     type: "income",
@@ -683,7 +691,7 @@ async function recordSharePayment({ personId, amountCents, accountId, date, note
     reimbursement: true,
     collectionId: colId,
     pendingSplit: false,
-    balanceApplied: true,
+    balanceApplied,
     createdAt: new Date().toISOString(),
   });
   const saved = await DB.get("collections", colId);
