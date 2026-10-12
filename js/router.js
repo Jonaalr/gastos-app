@@ -5,6 +5,8 @@
 const Router = {
   routes: {},
   current: null,
+  guard: null, // { active, message }: pregunta antes de salir de una pantalla con datos sin guardar
+  currentHash: "",
 
   register(path, renderFn) {
     Router.routes[path] = renderFn;
@@ -19,6 +21,7 @@ const Router = {
   },
 
   async render() {
+    Router.currentHash = location.hash;
     const hash = location.hash.slice(1) || "/dashboard";
     const [path, queryString] = hash.split("?");
     const params = new URLSearchParams(queryString || "");
@@ -55,6 +58,17 @@ const Router = {
   },
 };
 
-window.addEventListener("hashchange", Router.render);
+// Cambio de pantalla (barra inferior, botón atrás): si hay datos sin guardar, pregunta antes
+let revertingHash = false;
+window.addEventListener("hashchange", () => {
+  if (revertingHash) { revertingHash = false; return; }
+  if (Router.guard && Router.guard.active && !window.confirm(Router.guard.message)) {
+    revertingHash = true;
+    location.hash = Router.currentHash;
+    return;
+  }
+  Router.guard = null;
+  Router.render();
+});
 
 window.Router = Router;

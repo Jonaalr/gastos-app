@@ -66,6 +66,7 @@ function categoryOptions(categories) {
 }
 
 async function renderImportStatement(root, params) {
+  Router.guard = null;
   const [accounts, categories, allTx, memory, installmentPlans, transferMemory, peopleList] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("categories"),
@@ -245,6 +246,8 @@ async function renderImportStatement(root, params) {
 
   // ---------- Paso 2: revisión ----------
   function renderReview() {
+    // Ya hay movimientos revisados: avisar antes de salir de la pantalla
+    Router.guard = { active: true, message: "Estás a punto de cerrar esta sección. ¿Estás seguro? Se pierde toda la información que llevabas." };
     reviewBox.innerHTML = "";
     const { info, reconciliation, warnings, movements } = state.parsed;
     const payments = movements.filter((m) => m.kind === "payment");
@@ -714,6 +717,7 @@ async function renderImportStatement(root, params) {
       const topMonth = Object.entries(monthCount).sort((a, b) => b[1] - a[1])[0];
       const skipped = state.rows.filter((r) => r.selected && r.transfer && !r.toAccountId).length;
       toast(`${chosen.length} movimientos importados${skipped ? ` · ${skipped} pago(s) sin tarjeta, no importados` : ""}`, "success");
+      Router.guard = null;
       Router.navigate(`/transactions?month=${topMonth ? topMonth[0] : DateUtil.monthKey()}`);
     } catch (err) {
       console.error(err);
