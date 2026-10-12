@@ -33,7 +33,7 @@ async function renderTransactions(root, params) {
       if (catF) return String(t.categoryId) === catF;
       return true;
     })
-    .filter((t) => (accF ? String(t.accountId) === accF : true))
+    .filter((t) => (accF ? String(t.accountId) === accF || String(t.toAccountId) === accF : true))
     .filter((t) => {
       if (!qLower) return true;
       const cat = catMap[t.categoryId];
