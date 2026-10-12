@@ -48,7 +48,6 @@ async function renderSettings(root) {
     ["/calendar", "calendar", "Pagos domiciliados", "Cargos que se repiten"],
     ["/categories", "tag", "Categorías", "Agrega y cambia emojis"],
     ["/statements", "receipt", "Estados de cuenta", "Qué meses ya cargaste"],
-    ["/import", "receipt", "Importar estado de cuenta", "Lee un PDF de tu banco"],
   ];
   root.appendChild(
     el("div", { class: "card" }, SECTION_LINKS.map(([path, icon, title, meta]) =>
