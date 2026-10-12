@@ -356,7 +356,7 @@ async function renderImportStatement(root, params) {
       el("option", { value: "__new__" }, "+ Nueva categoría…"),
     ]);
     select.value = row.categoryId || "";
-    if (row.refund || row.transfer) select.style.display = "none";
+    if (row.refund || row.transfer || row.reimburse) select.style.display = "none";
     select.addEventListener("change", () => {
       if (select.value === "__new__") {
         // Crear la categoría; al guardarla queda asignada a este movimiento
@@ -431,7 +431,7 @@ async function renderImportStatement(root, params) {
     reimburseBtn.addEventListener("click", (e) => {
       e.preventDefault();
       row.reimburse = !row.reimburse;
-      if (row.reimburse) { row.transfer = false; }
+      if (row.reimburse) { row.transfer = false; row.refund = true; row.categoryId = null; }
       renderReviewKeepScroll();
     });
 
