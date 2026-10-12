@@ -66,12 +66,13 @@ function categoryOptions(categories) {
 }
 
 async function renderImportStatement(root, params) {
-  const [accounts, categories, allTx, memory, installmentPlans] = await Promise.all([
+  const [accounts, categories, allTx, memory, installmentPlans, transferMemory] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("categories"),
     DB.getAll("transactions"),
     DB.getMeta("merchantCategories", {}),
     DB.getMeta("installments", []),
+    DB.getMeta("transferAccounts", {}),
   ]);
   const activeAccounts = accounts.filter((a) => !a.archived).sort(accountPickerCompare);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
@@ -189,9 +190,14 @@ async function renderImportStatement(root, params) {
           if (similar) dup = { label: `Parecido a uno que ya registraste (${DateUtil.formatShort(similar.date)})` };
         }
 
-        const refund = m.kind === "refund";
-        // Pago a la tarjeta de crédito: transferencia (no gasto ni ingreso), con su tarjeta destino
-        const transfer = m.kind === "transfer";
+        // Pago a la tarjeta de crédito: transferencia con su tarjeta destino.
+        // Otros movimientos: transferencia entre tus cuentas si lo marcaste antes para ese comercio.
+        const cardPayment = m.kind === "transfer";
+        const tkey = StatementImporters.merchantKey(m.description);
+        const rememberedId = transferMemory[tkey];
+        const remembered = !cardPayment && rememberedId && activeAccounts.some((a) => a.id === rememberedId) ? rememberedId : null;
+        const transfer = cardPayment || !!remembered;
+        const refund = m.kind === "refund" && !transfer;
         return {
           i,
           m,
@@ -200,7 +206,8 @@ async function renderImportStatement(root, params) {
           selected: false, // al abrir, nada seleccionado: marcas solo los que quieras importar
           refund,
           transfer,
-          toAccountId: transfer ? (creditAccounts[0] || {}).id || null : null,
+          cardPayment,
+          toAccountId: cardPayment ? (creditAccounts[0] || {}).id || null : remembered,
           categoryId: refund || transfer ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
           manual: false,
           shared: false,
@@ -387,17 +394,45 @@ async function renderImportStatement(root, params) {
       renderReviewKeepScroll();
     });
 
-    const tags = row.transfer ? [] : [shareBtn];
+    // Transferencia entre tus cuentas (SPEI a otro banco, etc.): no es gasto ni ingreso
+    const otherAccounts = activeAccounts.filter((a) => a.id !== state.accountId);
+    const transferBtn = el("button", { type: "button", class: `imp-share${row.transfer ? " on" : ""}` }, row.transfer ? "✓ Entre mis cuentas" : "Entre mis cuentas");
+    transferBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const key = StatementImporters.merchantKey(m.description);
+      if (!row.transfer) {
+        row.transfer = true;
+        row.refund = false;
+        row.categoryId = null;
+        row.toAccountId = otherAccounts[0] ? otherAccounts[0].id : null;
+        // Mismo comercio en los demás movimientos sin tocar
+        for (const other of state.rows) {
+          if (other !== row && !other.manual && !other.transfer && !other.cardPayment && StatementImporters.merchantKey(other.m.description) === key) {
+            other.transfer = true; other.refund = false; other.categoryId = null; other.toAccountId = row.toAccountId;
+          }
+        }
+      } else {
+        row.transfer = false;
+        row.refund = m.kind === "refund";
+        row.toAccountId = null;
+        row.categoryId = row.refund ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory);
+      }
+      renderReviewKeepScroll();
+    });
+
+    const tags = row.cardPayment ? [] : [transferBtn, ...(row.transfer ? [] : [shareBtn])];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
     if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Ingreso"));
-    if (row.transfer) tags.push(el("span", { class: "imp-tag" }, "Pago de tarjeta · no es gasto"));
+    if (row.cardPayment) tags.push(el("span", { class: "imp-tag" }, "Pago de tarjeta · no es gasto"));
+    else if (row.transfer) tags.push(el("span", { class: "imp-tag" }, "Entre mis cuentas · no es gasto"));
     if (row.dup) tags.push(el("span", { class: "imp-tag warn" }, row.dup.label));
 
     // Tarjeta destino del pago (solo transferencias)
+    const destList = row.cardPayment ? creditAccounts : otherAccounts;
     const destSelect = row.transfer
-      ? el("select", { class: "imp-cat" }, creditAccounts.length
-          ? creditAccounts.map((a) => el("option", { value: a.id }, accountPickerLabel(a)))
-          : [el("option", { value: "" }, "Crea la tarjeta para registrar este pago")])
+      ? el("select", { class: "imp-cat" }, destList.length
+          ? destList.map((a) => el("option", { value: a.id }, accountPickerLabel(a)))
+          : [el("option", { value: "" }, row.cardPayment ? "Crea la tarjeta para registrar este pago" : "No tienes otra cuenta activa")])
       : null;
     if (destSelect) {
       destSelect.value = row.toAccountId || "";
@@ -411,7 +446,7 @@ async function renderImportStatement(root, params) {
       el("div", { class: "imp-main" }, [
         el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, m.description), el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`)]),
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
-        ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, "Tarjeta a la que se pagó")] : []),
+        ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
         ...(destSelect ? [destSelect] : [select]),
         comment,
       ]),
@@ -487,6 +522,12 @@ async function renderImportStatement(root, params) {
         if (r.categoryId && !r.refund && !r.transfer) mem[StatementImporters.merchantKey(r.m.description)] = r.categoryId;
       }
       await DB.setMeta("merchantCategories", mem);
+      // Recordar a qué cuenta fue cada transferencia entre tus cuentas
+      const tmem = { ...(await DB.getMeta("transferAccounts", {})) };
+      for (const r of chosen) {
+        if (r.transfer && !r.cardPayment && r.toAccountId) tmem[StatementImporters.merchantKey(r.m.description)] = r.toAccountId;
+      }
+      await DB.setMeta("transferAccounts", tmem);
 
       // Compras a meses confirmadas: crear el plan o avanzar su cuota actual
       const checkedPlans = (state.installments || []).filter((p) => p.checked);
