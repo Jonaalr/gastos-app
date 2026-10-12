@@ -1322,3 +1322,7 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 /* Importar estado de cuenta: sin barra inferior y con botón de regreso arriba a la izquierda */
 body[data-route="/import"] .bottom-nav { display: none; }
 .import-back { flex-shrink: 0; width: 40px; height: 40px; margin-right: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--fill); color: var(--text); font-size: 26px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0 0 4px; }
+
+/* Importar: la barra de abajo está oculta, así que la barra de importar va pegada al fondo */
+body[data-route="/import"] .imp-bar { bottom: var(--safe-bottom, 0px); }
+body[data-route="/import"] #imp-review { padding-bottom: 130px; }
