@@ -80,6 +80,8 @@ async function renderImportStatement(root, params) {
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const creditAccounts = activeAccounts.filter((a) => a.type === "credit");
   let catOptions = categoryOptions(expenseCategories);
+  const incomeCategories = categories.filter((c) => c.kind === "income");
+  let incomeCatOptions = categoryOptions(incomeCategories);
 
   const preselected = parseInt(params.get("account") || "0", 10) || null;
   const state = {
@@ -352,21 +354,24 @@ async function renderImportStatement(root, params) {
 
     const select = el("select", { class: "imp-cat" }, [
       el("option", { value: "" }, "Sin categoría"),
-      ...catOptions.map((o) => el("option", { value: o.id }, o.label)),
+      ...shownOptions.map((o) => el("option", { value: o.id }, o.label)),
       el("option", { value: "__new__" }, "+ Nueva categoría…"),
     ]);
     select.value = row.categoryId || "";
-    if (row.refund || row.transfer || row.reimburse) select.style.display = "none";
+    // Ingresos: categoría de ingreso (Sueldo, Regalo, Herencia…). Transferencias y reembolsos: sin categoría.
+    const isIncome = row.refund && !row.reimburse;
+    const shownOptions = isIncome ? incomeCatOptions : catOptions;
+    if (row.transfer || row.reimburse) select.style.display = "none";
     select.addEventListener("change", () => {
       if (select.value === "__new__") {
         // Crear la categoría; al guardarla queda asignada a este movimiento
         select.value = row.categoryId || "";
         openCategoryEditSheet({
-          kind: "expense",
+          kind: isIncome ? "income" : "expense",
           onSaved: async () => {
-            const exp = (await DB.getAll("categories")).filter((c) => c.kind === "expense");
-            catOptions = categoryOptions(exp);
-            const newest = exp.sort((a, b) => b.id - a.id)[0];
+            const list = (await DB.getAll("categories")).filter((c) => c.kind === (isIncome ? "income" : "expense"));
+            if (isIncome) incomeCatOptions = categoryOptions(list); else catOptions = categoryOptions(list);
+            const newest = list.sort((a, b) => b.id - a.id)[0];
             if (newest) { row.categoryId = newest.id; row.manual = true; }
             renderReviewKeepScroll();
           },
@@ -523,7 +528,7 @@ async function renderImportStatement(root, params) {
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         ...(row.showDetail ? [detail] : []),
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
-        ...(destSelect ? [destSelect] : (row.refund || row.reimburse ? [] : [select])),
+        ...(destSelect ? [destSelect] : (row.reimburse ? [] : [select])),
         ...(reimbursePanel ? [reimbursePanel] : []),
         comment,
       ]),
@@ -628,7 +633,7 @@ async function renderImportStatement(root, params) {
           amountCents: r.m.amountCents,
           accountId: state.accountId,
           toAccountId: r.transfer ? r.toAccountId : null,
-          categoryId: r.refund || r.transfer ? null : r.categoryId,
+          categoryId: r.transfer || r.reimburse ? null : r.categoryId,
           merchant: r.name && r.name.trim() ? r.name.trim() : r.m.description,
           note: [r.comment && r.comment.trim(), r.m.rawDescription.replace(/\s+/g, " ")].filter(Boolean).join(" · "),
           date: r.m.date,
