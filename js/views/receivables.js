@@ -49,6 +49,16 @@ async function syncDomCycles(transactions, collections, people) {
 
   for (const tpl of templates) {
     let mine = cycles.filter((c) => c.txId === tpl.id).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    // Ciclos futuros que se crearon antes de tiempo: sobran si el anterior aún no lo pagan todos
+    const openIdx = mine.findIndex((c) => !cycleLines(c, tpl, collections, people).every((l) => l.paidCents >= l.shareCents));
+    if (openIdx >= 0) {
+      const drop = new Set(mine.slice(openIdx + 1).filter((c) => c.dueDate > today && !c.chargeTxId).map((c) => c.id));
+      if (drop.size) {
+        cycles = cycles.filter((c) => !drop.has(c.id));
+        mine = mine.filter((c) => !drop.has(c.id));
+        changed = true;
+      }
+    }
     if (!mine.length) {
       // Sin historia retroactiva: si el gasto es de un mes pasado, el primer ciclo es el próximo cargo
       const sameOrLaterMonth = DateUtil.monthKey(tpl.date) >= DateUtil.monthKey(today);
@@ -62,7 +72,8 @@ async function syncDomCycles(transactions, collections, people) {
       const last = mine[mine.length - 1];
       const lines = cycleLines(last, tpl, collections, people);
       const paidAll = lines.every((l) => l.paidCents >= l.shareCents);
-      if (!(paidAll || last.dueDate <= today)) break;
+      // El siguiente cargo aparece solo cuando el actual ya lo pagaron todos
+      if (!paidAll) break;
       const next = { id: uid(), txId: tpl.id, dueDate: addMonthsISO(last.dueDate, 1, tpl.recurringDay) };
       cycles.push(next);
       mine.push(next);
@@ -156,6 +167,9 @@ async function computeReceivables() {
   for (const c of collections) {
     const row = byPerson.get(c.personId);
     if (!row) continue;
+    // Reembolsos que vienen de un estado de cuenta importado: no cuentan en los saldos
+    const rtx = c.reimbursementTxId ? txById.get(c.reimbursementTxId) : null;
+    if (rtx && rtx.importBatch) continue;
     row.paid += c.amountCents;
     row.payments.push({ kind: "payment", date: c.date, collection: c, amountCents: c.amountCents });
   }
@@ -278,6 +292,7 @@ async function renderReceivables(root, params) {
 
 function domCyclesCard(cycles) {
   const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, "Domiciliados compartidos")]);
+  const openSet = (window._domOpen = window._domOpen || new Set());
   for (const c of cycles) {
     const date = DateUtil.formatShort(c.dueDate);
     const status = c.late
@@ -286,32 +301,57 @@ function domCyclesCard(cycles) {
     const block = el("div", { class: "dom-cycle", style: "padding:10px 0;border-top:1px solid rgba(0,0,0,.08);" }, [
       el("div", {}, [el("strong", {}, c.tx.merchant || "Domiciliado"), el("div", { style: "margin-top:2px;" }, [status])]),
     ]);
-    for (const l of c.lines) {
-      const remaining = Math.max(0, l.shareCents - l.paidCents);
-      const done = remaining === 0;
-      const btn = done
-        ? el("span", { class: "dom-paid-tag" }, "✓ Pagado")
-        : el("button", {
-            class: "dom-pay-btn",
-            type: "button",
-            onclick: () => openCollectionSheet({
-              personId: l.personId,
-              name: l.name,
-              suggested: remaining,
-              cycleId: c.cycle.id,
-              note: `${c.tx.merchant || "Domiciliado"} · ${date}`,
-              onSaved: () => Router.render(),
-            }),
-          }, "Registrar pago");
+    const paidLines = c.lines.filter((l) => l.paidCents >= l.shareCents);
+    const openLines = c.lines.filter((l) => l.paidCents < l.shareCents);
+    // Quienes ya pagaron, a la vista
+    for (const l of paidLines) {
       block.appendChild(
         el("div", { class: "dom-line" }, [
           el("div", { class: "dom-line-info" }, [
             el("span", { class: "dom-line-name" }, l.name),
-            el("span", { class: done ? "dom-line-owe done" : "dom-line-owe" }, done ? "Pagado" : `Te debe ${Money.format(remaining)}`),
+            el("span", { class: "dom-line-owe done" }, "Pagado"),
           ]),
-          btn,
+          el("span", { class: "dom-paid-tag" }, "✓ Pagado"),
         ])
       );
+    }
+    // Quienes faltan: ocultos hasta desplegarlos
+    if (openLines.length) {
+      const isOpen = openSet.has(c.cycle.id);
+      block.appendChild(el("button", {
+        class: "btn btn-secondary btn-sm",
+        type: "button",
+        style: "width:100%;margin-top:8px;",
+        onclick: () => {
+          if (openSet.has(c.cycle.id)) openSet.delete(c.cycle.id); else openSet.add(c.cycle.id);
+          Router.render();
+        },
+      }, isOpen ? "Ocultar quién falta" : `Ver quién falta (${openLines.length})`));
+      if (isOpen) {
+        for (const l of openLines) {
+          const remaining = Math.max(0, l.shareCents - l.paidCents);
+          block.appendChild(
+            el("div", { class: "dom-line" }, [
+              el("div", { class: "dom-line-info" }, [
+                el("span", { class: "dom-line-name" }, l.name),
+                el("span", { class: "dom-line-owe" }, `Te debe ${Money.format(remaining)}`),
+              ]),
+              el("button", {
+                class: "dom-pay-btn",
+                type: "button",
+                onclick: () => openCollectionSheet({
+                  personId: l.personId,
+                  name: l.name,
+                  suggested: remaining,
+                  cycleId: c.cycle.id,
+                  note: `${c.tx.merchant || "Domiciliado"} · ${date}`,
+                  onSaved: () => Router.render(),
+                }),
+              }, "Registrar pago"),
+            ])
+          );
+        }
+      }
     }
     card.appendChild(block);
   }
