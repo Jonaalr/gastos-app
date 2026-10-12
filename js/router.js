@@ -88,7 +88,7 @@ window.addEventListener("hashchange", () => {
   Router.render();
 });
 
-Router.AUTO_HIDE_NAV = ["/reports", "/transactions", "/budgets", "/accounts", "/debts", "/receivables"];
+Router.AUTO_HIDE_NAV = ["/reports", "/transactions", "/budgets", "/accounts", "/debts", "/receivables", "/calendar"];
 Router.lastScrollY = 0;
 window.addEventListener("scroll", () => {
   if (!Router.AUTO_HIDE_NAV.includes(document.body.dataset.route)) return;

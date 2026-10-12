@@ -1323,6 +1323,8 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 body[data-route="/import"] .bottom-nav { display: none; }
 .bottom-nav { transition: transform 0.4s ease, opacity 0.4s ease; }
 body.nav-hidden .bottom-nav { transform: translateY(160%); opacity: 0; pointer-events: none; }
+.fab { transition: transform 0.4s ease, opacity 0.4s ease; }
+body.nav-hidden .fab { transform: translateY(260%); opacity: 0; pointer-events: none; }
 body[data-route="/reports"] .fab,
 body[data-route="/transactions"] .fab,
 body[data-route="/budgets"] .fab { display: none; }
