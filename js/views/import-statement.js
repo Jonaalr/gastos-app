@@ -392,9 +392,24 @@ async function renderImportStatement(root, params) {
     const comment = el("input", { type: "text", class: "imp-comment", placeholder: "Comentario: ¿de qué fue?", value: row.comment || "" });
     comment.addEventListener("input", () => { row.comment = comment.value; });
 
-    // Nombre del movimiento: lo que se guarda en la app (el original queda en el detalle)
-    const nameInput = el("input", { type: "text", class: "imp-comment", placeholder: "Nombre del movimiento", value: row.name ?? m.description });
-    nameInput.addEventListener("input", () => { row.name = nameInput.value; });
+    // Nombre del movimiento: lápiz junto al nombre; al tocarlo se edita ahí mismo
+    let nameEl;
+    if (row.editingName) {
+      nameEl = el("input", { type: "text", class: "imp-name-edit", value: row.name ?? m.description });
+      nameEl.addEventListener("input", () => { row.name = nameEl.value; });
+      nameEl.addEventListener("keydown", (e) => { if (e.key === "Enter") nameEl.blur(); });
+      nameEl.addEventListener("blur", () => { row.editingName = false; renderReviewKeepScroll(); });
+      setTimeout(() => nameEl.focus(), 0);
+    } else {
+      nameEl = el("span", { class: "imp-desc" }, row.name ?? m.description);
+    }
+    const pencilBtn = el("button", { type: "button", class: "imp-pencil", "aria-label": "Cambiar nombre del movimiento" }, "✎");
+    pencilBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      row.editingName = true;
+      renderReviewKeepScroll();
+    });
+    const nameWrap = el("span", { class: "imp-name-wrap" }, [nameEl, pencilBtn]);
 
     // Detalle tal cual viene en el estado de cuenta
     const detailBtn = el("button", { type: "button", class: `imp-detail${row.showDetail ? " on" : ""}`, "aria-label": "Ver detalle del movimiento" }, [
@@ -504,10 +519,9 @@ async function renderImportStatement(root, params) {
     const wrap = el("div", { class: `imp-row${row.selected ? "" : " off"}` }, [
       el("label", { class: "imp-check" }, [chk]),
       el("div", { class: "imp-main" }, [
-        el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, row.name ?? m.description), el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`), detailBtn]),
+        el("div", { class: "imp-top" }, [nameWrap, el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`), detailBtn]),
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         ...(row.showDetail ? [detail] : []),
-        nameInput,
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
         ...(destSelect ? [destSelect] : [select]),
         ...(reimbursePanel ? [reimbursePanel] : []),
