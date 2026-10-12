@@ -59,8 +59,11 @@ async function renderStatements(root) {
     const mine = statements.filter((s) => s.accountId === a.id);
     const loaded = new Set(mine.map(statementMonth));
     const createdMonth = a.createdAt ? DateUtil.monthKey(a.createdAt) : null;
-    const loadedCount = months.filter((k) => loaded.has(k)).length;
-    const grid = el("div", { class: "stmt-grid" }, months.map((k) => {
+    // Por defecto solo los últimos 6 meses; el botón despliega los 6 anteriores
+    const expanded = (window._stmtExpanded = window._stmtExpanded || new Set()).has(a.id);
+    const shownMonths = expanded ? months : months.slice(6);
+    const loadedCount = shownMonths.filter((k) => loaded.has(k)).length;
+    const grid = el("div", { class: "stmt-grid" }, shownMonths.map((k) => {
       const before = createdMonth && k < createdMonth;
       const on = loaded.has(k);
       const label = MESES_ES[Number(k.split("-")[1]) - 1].slice(0, 3);
@@ -72,9 +75,14 @@ async function renderStatements(root) {
     root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [
       el("div", { class: "flex-between" }, [
         el("div", { class: "title", style: "font-weight:700;" }, accountPickerLabel(a)),
-        el("div", { class: "muted", style: "font-size:12px;" }, `${loadedCount} de ${months.length} meses`),
+        el("div", { class: "muted", style: "font-size:12px;" }, `${loadedCount} de ${shownMonths.length} meses`),
       ]),
       grid,
+      el("button", { class: "btn btn-secondary btn-sm", style: "width:100%;margin-top:10px;", onclick: () => {
+        const set = (window._stmtExpanded = window._stmtExpanded || new Set());
+        if (set.has(a.id)) set.delete(a.id); else set.add(a.id);
+        Router.render();
+      } }, expanded ? "Ocultar meses anteriores" : "Ver 6 meses anteriores"),
     ]));
   }
 

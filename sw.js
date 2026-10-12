@@ -4,7 +4,7 @@
  * Los DATOS viven en IndexedDB, no aquí — este archivo solo cachea código.
  */
 
-const CACHE_NAME = "gastos-app-v167";
+const CACHE_NAME = "gastos-app-v168";
 const ASSETS = [
   "./",
   "./index.html",
