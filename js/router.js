@@ -14,6 +14,15 @@ const Router = {
 
   async navigate(path) {
     if (location.hash.slice(1) !== path) {
+      // Dentro de la misma sección (p. ej. Reportes → Movimientos) no se apila historial:
+      // así un solo "atrás" regresa a la sección de donde vienes (Inicio)
+      const group = (p) => (typeof navActivePath === "function" ? navActivePath(p) : p);
+      const curPath = (location.hash.slice(1) || "/dashboard").split("?")[0];
+      if (group(curPath) === group(path.split("?")[0]) && !(Router.guard && Router.guard.active)) {
+        history.replaceState(null, "", "#" + path);
+        await Router.render();
+        return;
+      }
       location.hash = path;
       return; // el evento hashchange dispara render()
     }
