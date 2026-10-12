@@ -18,13 +18,15 @@ async function renderTransactions(root, params) {
   const q = (params.get("q") || "").trim();
   const catF = params.get("cat") || "";
   const accF = params.get("acc") || "";
+  const pendF = params.get("pend") === "1"; // gastos compartidos que falta repartir
   const fromF = params.get("from") || "";
   const toF = params.get("to") || "";
   const ranged = !!(fromF || toF);
   const allTime = params.get("todo") === "1";
   const qLower = q.toLowerCase();
   const txMonth = allTx
-    .filter((t) => (q || ranged || allTime ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => (q || ranged || allTime || pendF ? true : DateUtil.monthKey(t.date) === monthKey))
+    .filter((t) => (pendF ? t.pendingSplit && !t.split : true))
     .filter((t) => (fromF ? t.date >= fromF : true) && (toF ? t.date <= toF : true))
     .filter((t) => {
       if (catF === "none") return !t.categoryId;
@@ -41,8 +43,8 @@ async function renderTransactions(root, params) {
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   const goTo = (changes) => {
     const next = new URLSearchParams();
-    const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, ...changes };
-    const dropMonth = !!(values.q || values.from || values.to || values.todo);
+    const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, pend: pendF ? "1" : "", ...changes };
+    const dropMonth = !!(values.q || values.from || values.to || values.todo || values.pend);
     for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
     Router.navigate(`/transactions?${next.toString()}`);
   };
@@ -60,7 +62,7 @@ async function renderTransactions(root, params) {
     const catObj = catF && catF !== "none" ? categories.find((c) => String(c.id) === catF) : null;
     const catName = catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
     const accObj = accF ? accMap[accF] : null;
-    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0);
+    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0) + (pendF ? 1 : 0);
     return filtersPanel({
       open: txFiltersOpen,
       count,
@@ -69,6 +71,7 @@ async function renderTransactions(root, params) {
         iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, (c) => goTo(c))),
         iconChip("tag", `${catName} ▾`, !!catF, () => openCategorySheet(categories, catF, (c) => goTo(c))),
         iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountFilterSheet(accounts, accF, (c) => goTo(c))),
+        iconChip("handshake", "Por repartir", pendF, () => goTo({ pend: pendF ? "" : "1" })),
       ],
     });
   };
@@ -100,7 +103,7 @@ async function renderTransactions(root, params) {
   const days = Object.keys(byDay).sort().reverse();
 
   if (days.length === 0) {
-    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, (allTime || ranged || q || catF || accF ? "Sin movimientos con estos filtros." : "Sin movimientos este mes."))));
+    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, (allTime || ranged || q || catF || accF || pendF ? "Sin movimientos con estos filtros." : "Sin movimientos este mes."))));
   } else {
     for (const day of days) {
       const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, DateUtil.formatLong(day))]);
