@@ -169,7 +169,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
         const paid = split.paid.has(id);
         const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
         const accSel = paid && !split.paidInitial.has(id)
-          ? `<div class="split-acc"><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
+          ? `<div class="split-acc"><div class="field-hint" style="margin:0 0 4px;font-size:12px;">¿En qué cuenta tuya recibiste el pago de ${escapeHtml(nameOf(id))}?</div><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
               .map((a) => `<option value="${a.id}" ${a.id === (split.paidAcc.get(id) || defaultPayAccountId()) ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
               .join("")}</select></div>`
           : "";
