@@ -392,6 +392,27 @@ async function renderImportStatement(root, params) {
     const comment = el("input", { type: "text", class: "imp-comment", placeholder: "Comentario: ¿de qué fue?", value: row.comment || "" });
     comment.addEventListener("input", () => { row.comment = comment.value; });
 
+    // Nombre del movimiento: lo que se guarda en la app (el original queda en el detalle)
+    const nameInput = el("input", { type: "text", class: "imp-comment", placeholder: "Nombre del movimiento", value: row.name ?? m.description });
+    nameInput.addEventListener("input", () => { row.name = nameInput.value; });
+
+    // Detalle tal cual viene en el estado de cuenta
+    const detailBtn = el("button", { type: "button", class: `imp-detail${row.showDetail ? " on" : ""}`, "aria-label": "Ver detalle del movimiento" }, [
+      el("span", { "aria-hidden": "true", style: "font-size:18px;line-height:1;" }, "≡"),
+    ]);
+    detailBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      row.showDetail = !row.showDetail;
+      renderReviewKeepScroll();
+    });
+    const accountOfRow = activeAccounts.find((a) => a.id === state.accountId);
+    const detail = el("div", { class: "imp-detail-box" }, [
+      el("div", { class: "imp-detail-k" }, "Fecha"), el("div", {}, DateUtil.formatShort(m.date)),
+      el("div", { class: "imp-detail-k" }, "Descripción"), el("div", { class: "imp-detail-v" }, m.rawDescription.replace(/\s+/g, " ")),
+      el("div", { class: "imp-detail-k" }, "Cuenta"), el("div", {}, accountOfRow ? accountPickerLabel(accountOfRow) : "—"),
+      el("div", { class: "imp-detail-k" }, "Monto"), el("div", {}, Money.format(m.amountCents)),
+    ]);
+
     // Compartido: lo marcas aquí y luego lo repartes en Movimientos (ahí eliges con quién)
     const shareBtn = el("button", { type: "button", class: `imp-share${row.shared ? " on" : ""}` }, row.shared ? "✓ Compartido" : "Compartido");
     shareBtn.addEventListener("click", (e) => {
@@ -483,8 +504,10 @@ async function renderImportStatement(root, params) {
     const wrap = el("div", { class: `imp-row${row.selected ? "" : " off"}` }, [
       el("label", { class: "imp-check" }, [chk]),
       el("div", { class: "imp-main" }, [
-        el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, m.description), el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`)]),
+        el("div", { class: "imp-top" }, [el("span", { class: "imp-desc" }, row.name ?? m.description), el("span", { class: `imp-amount ${amountClass}` }, `${amountSign}${Money.format(m.amountCents)}`), detailBtn]),
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
+        ...(row.showDetail ? [detail] : []),
+        nameInput,
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
         ...(destSelect ? [destSelect] : [select]),
         ...(reimbursePanel ? [reimbursePanel] : []),
@@ -592,7 +615,7 @@ async function renderImportStatement(root, params) {
           accountId: state.accountId,
           toAccountId: r.transfer ? r.toAccountId : null,
           categoryId: r.refund || r.transfer ? null : r.categoryId,
-          merchant: r.m.description,
+          merchant: r.name && r.name.trim() ? r.name.trim() : r.m.description,
           note: [r.comment && r.comment.trim(), r.m.rawDescription.replace(/\s+/g, " ")].filter(Boolean).join(" · "),
           date: r.m.date,
           isRecurring: false,

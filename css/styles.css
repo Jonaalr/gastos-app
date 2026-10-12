@@ -1307,3 +1307,10 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 .tr-after strong { color: var(--income); }
 .tr-after.neg strong { color: var(--expense); }
 .tr-warn { color: var(--expense); font-size: 12px; }
+
+/* Detalle del movimiento en la revisión del estado de cuenta */
+.imp-detail { flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--border); background: var(--fill); color: var(--text); display: flex; align-items: center; justify-content: center; padding: 0; }
+.imp-detail.on { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+.imp-detail-box { display: grid; grid-template-columns: 90px 1fr; gap: 4px 10px; margin: 6px 0; padding: 10px; border-radius: 10px; background: var(--bg-elevated); border: 1px solid var(--border); font-size: 13px; }
+.imp-detail-k { color: var(--text-dim, var(--muted, #888)); }
+.imp-detail-v { word-break: break-word; font-variant-numeric: tabular-nums; }
