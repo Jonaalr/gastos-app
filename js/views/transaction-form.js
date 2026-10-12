@@ -100,15 +100,17 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     await computeReceivables(); // asegura que existan los ciclos
     pending = await pendingCycleInfo(data.id);
   }
+  // Cargo ya ligado a un domiciliado: quiénes ya pagaron este cargo (lo que muestra Pagos)
+  const linkedPaid = !data.isRecurring && data.cycleId && data.split ? await cyclePaidIds(data.cycleId, data.split) : null;
   const split = {
     enabled: !!data.split,
     selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
     mode: data.split ? "manual" : "equal",
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
     // En un domiciliado los pagos se llevan por ciclo (Dinero), no con "Ya te pagó"
-    paid: new Set(data.isRecurring ? (pending ? [...pending.paidIds] : []) : data.split ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
-    paidInitial: new Set(pending ? [...pending.paidIds] : []), // ya pagados al abrir (su pago ya está registrado)
-    pendingCycleId: pending ? pending.cycle.id : null,
+    paid: new Set(data.isRecurring ? (pending ? [...pending.paidIds] : []) : linkedPaid ? [...linkedPaid] : data.split ? data.split.participants.filter((p) => p.paid).map((p) => p.personId) : []),
+    paidInitial: new Set(pending ? [...pending.paidIds] : linkedPaid ? [...linkedPaid] : []), // ya pagados al abrir (su pago ya está registrado)
+    pendingCycleId: pending ? pending.cycle.id : linkedPaid ? data.cycleId : null,
     paidAcc: new Map(), // personId -> cuenta donde entró su pago
   };
   const payAccounts = () => accounts.filter((a) => !a.archived && a.type !== "credit").sort(accountPickerCompare);
@@ -466,9 +468,42 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     const paymentsRecorded = [];
     const alreadyPaid = [];
     const paymentsCancelled = [];
+    // Cargo ligado a un domiciliado: las marcas registran pagos en su ciclo (igual que en Pagos)
+    const cycleLinked = !!(existing && existing.cycleId && !recurringNow && splitRecord);
     if (splitRecord) {
       for (const p of splitRecord.participants) {
         const prevCol = prevParts.find((x) => x.personId === p.personId)?.collectionId || null;
+        if (cycleLinked) {
+          const cid = existing.cycleId;
+          const wasPaid = split.paidInitial.has(p.personId);
+          const personName = people.find((x) => x.id === p.personId)?.name || "—";
+          if (!p.paid && wasPaid) {
+            const cols = (await DB.getAll("collections")).filter((c) => c.cycleId === cid && c.personId === p.personId);
+            for (const c of cols) await removePaidCollection(c.id);
+            paymentsCancelled.push(personName);
+          }
+          if (p.paid && !wasPaid) {
+            const share = existing.split?.participants?.find((x) => x.personId === p.personId)?.shareCents || p.shareCents || 0;
+            const cols = (await DB.getAll("collections")).filter((c) => c.cycleId === cid && c.personId === p.personId);
+            const remaining = share - cols.reduce((s, c) => s + c.amountCents, 0);
+            if (remaining > 0) {
+              await recordSharePayment({
+                personId: p.personId,
+                amountCents: remaining,
+                accountId: split.paidAcc.get(p.personId) || defaultPayAccountId(),
+                date: DateUtil.todayISO(),
+                note: `${sheet.querySelector("#f-merchant").value.trim() || "Domiciliado"} · ${existing.date}`,
+                cycleId: cid,
+                personName,
+              });
+              paymentsRecorded.push(personName);
+            } else {
+              alreadyPaid.push(personName);
+            }
+          }
+          p.paid = false;
+          continue;
+        }
         if (recurringNow) {
           // Domiciliado: el pago va al cargo pendiente más antiguo de esta persona; la marca no se guarda
           const wasPaid = split.paidInitial.has(p.personId);
@@ -548,6 +583,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       pendingSplit: splitRecord ? false : !!existing?.pendingSplit,
       source: data.source || "manual",
       createdAt: existing?.createdAt || new Date().toISOString(),
+      // Cargo de domiciliado: conserva su ciclo al editarlo
+      ...(existing?.cycleId ? { cycleId: existing.cycleId } : {}),
     };
     // Movimientos importados de un estado de cuenta: conservar su identidad y que no tocan el saldo
     if (existing && existing.balanceApplied === false) {
@@ -586,6 +623,17 @@ async function saveTransactionWithBalances(record, previous) {
   const id = await DB.put("transactions", record);
   await applyBalanceDelta({ ...record, id }, +1);
   return id;
+}
+
+/** Quiénes ya cubrieron su parte de un cargo de domiciliado (cobros ligados al ciclo) */
+async function cyclePaidIds(cycleId, split) {
+  const cols = await DB.getAll("collections");
+  const paidIds = new Set();
+  for (const part of split.participants) {
+    const paid = cols.filter((x) => x.cycleId === cycleId && x.personId === part.personId).reduce((s, x) => s + x.amountCents, 0);
+    if (paid >= part.shareCents) paidIds.add(part.personId);
+  }
+  return paidIds;
 }
 
 /** Primer cargo de un domiciliado que aún no pagan todos, y quiénes ya cubrieron su parte */
