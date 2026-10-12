@@ -84,8 +84,8 @@
 
     const info = {
       bank: "Revolut",
-      cardName: "Cuenta Revolut (rendimientos)",
-      accountType: "savings",
+      cardName: "Cuenta Revolut (débito)",
+      accountType: "debit",
       last4: accM ? accM[1].slice(-4) : null,
       periodStart,
       periodEnd,
@@ -171,5 +171,5 @@
     };
   }
 
-  return { id: "revolut-savings", label: "Revolut · cuenta de rendimientos", detect, parse };
+  return { id: "revolut-savings", label: "Revolut · cuenta de débito", detect, parse };
 });
