@@ -523,7 +523,7 @@ async function renderImportStatement(root, params) {
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         ...(row.showDetail ? [detail] : []),
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
-        ...(destSelect ? [destSelect] : [select]),
+        ...(destSelect ? [destSelect] : (row.refund || row.reimburse ? [] : [select])),
         ...(reimbursePanel ? [reimbursePanel] : []),
         comment,
       ]),
