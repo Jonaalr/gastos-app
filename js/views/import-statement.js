@@ -361,7 +361,7 @@ async function renderImportStatement(root, params) {
     // Ingresos: categoría de ingreso (Sueldo, Regalo, Herencia…). Transferencias y reembolsos: sin categoría.
     const isIncome = row.refund && !row.reimburse;
     const shownOptions = isIncome ? incomeCatOptions : catOptions;
-    if (row.transfer || row.reimburse) select.style.display = "none";
+    if (row.cardPayment || row.reimburse) select.style.display = "none";
     select.addEventListener("change", () => {
       if (select.value === "__new__") {
         // Crear la categoría; al guardarla queda asignada a este movimiento
@@ -381,6 +381,13 @@ async function renderImportStatement(root, params) {
       const id = select.value ? parseInt(select.value, 10) : null;
       row.categoryId = id;
       row.manual = true;
+      // Una transferencia con categoría es un pago (gasto), no una transferencia entre tus cuentas
+      if (id && row.transfer && !row.cardPayment) {
+        row.transfer = false;
+        row.toAccountId = null;
+        renderReviewKeepScroll();
+        return;
+      }
       // Aplicar a los demás movimientos del mismo comercio que no hayas tocado
       const key = StatementImporters.merchantKey(m.description);
       let changed = 0;
@@ -528,7 +535,8 @@ async function renderImportStatement(root, params) {
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         ...(row.showDetail ? [detail] : []),
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
-        ...(destSelect ? [destSelect] : (row.reimburse ? [] : [select])),
+        ...(destSelect ? [destSelect] : []),
+        ...(row.reimburse || row.cardPayment ? [] : [select]),
         ...(reimbursePanel ? [reimbursePanel] : []),
         comment,
       ]),
