@@ -71,7 +71,7 @@ async function renderStatements(root) {
     }));
     root.appendChild(el("div", { class: "card", style: "margin-top:12px;" }, [
       el("div", { class: "flex-between" }, [
-        el("div", { class: "title", style: "font-weight:700;" }, a.name),
+        el("div", { class: "title", style: "font-weight:700;" }, accountPickerLabel(a)),
         el("div", { class: "muted", style: "font-size:12px;" }, `${loadedCount} de ${months.length} meses`),
       ]),
       grid,
