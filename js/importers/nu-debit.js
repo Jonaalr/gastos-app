@@ -24,6 +24,7 @@
   const CAJITA = /Cajita/i;
   const SECTION_START = /Detalle de movimientos en tu cuenta/i;
   const SECTION_END = /Detalle de movimientos de tus cajitas|Con estos movimientos|DINERO GENERADO|CONTACTO/i;
+  const DETAIL_START = /^\s*(Dep[oó]sito|Retiro|Compensaci[oó]n|Pago|Transferencia recibida|Transferencia enviada|Cargo|Abono|Cobro|Reembolso)\b/i;
   const PAGE_NOISE = /Nubank, S\.A\.|C\.P\.|Cuenta Nu|FECHA|MONTO EN PESOS|Detalle de movimientos|Gr[aá]fico Transaccional|^\s*\d+\s+de\s+\d+\s*$/i;
 
   function toCents(text) {
@@ -108,11 +109,13 @@
     // ---- Renglones de la sección "Detalle de movimientos en tu cuenta" ----
     const rows = [];
     let inSection = false;
+    // Líneas de texto desde el último renglón en blanco (puede ser el nombre del siguiente movimiento)
+    let block = [];
     for (const rawLine of lines) {
       const line = rawLine.replace(/\s+$/, "");
-      if (!line.trim()) continue;
-      if (SECTION_START.test(line)) { inSection = true; continue; }
-      if (inSection && SECTION_END.test(line)) { inSection = false; continue; }
+      if (!line.trim()) { block = []; continue; }
+      if (SECTION_START.test(line)) { inSection = true; block = []; continue; }
+      if (inSection && SECTION_END.test(line)) { inSection = false; block = []; continue; }
       if (!inSection) continue;
       if (holder && line.trim() === holder) continue;
       if (PAGE_NOISE.test(line)) continue;
@@ -121,13 +124,22 @@
       if (row) {
         const month = MONTHS[row[2].toUpperCase()];
         if (!month) { warnings.push(`No se entendió la fecha de un renglón: "${line.trim().slice(0, 30)}…"`); continue; }
+        // Si el monto va en la misma línea de la fecha, el nombre suele ir justo arriba: es de este movimiento
+        const onlyAmount = /^\s*[+-]\$[\d,]+\.\d{2}\s*$/.test(row[4]);
+        let titleBefore = [];
+        if (onlyAmount && rows.length && block.length && !DETAIL_START.test(block[0])) {
+          const prev = rows[rows.length - 1];
+          if (prev.extra.length >= block.length) titleBefore = prev.extra.splice(prev.extra.length - block.length, block.length);
+        }
         rows.push({
           date: `${row[3]}-${String(month).padStart(2, "0")}-${row[1]}`,
           head: row[4],
           extra: [],
+          titleBefore,
           amountCents: null,
           sign: null,
         });
+        block = [];
         continue;
       }
       if (!rows.length) continue;
@@ -139,11 +151,22 @@
         continue;
       }
       last.extra.push(line.trim());
+      block.push(line.trim());
     }
 
     // Monto: al final del renglón de fecha, o en la línea que sigue
     const movements = [];
     for (const r of rows) {
+      // Nombre que venía arriba de la fecha, y líneas de continuación del nombre antes del detalle
+      if (r.head.trim() === "" || AMOUNT_END.test(r.head) && r.head.replace(AMOUNT_END, "").trim() === "") {
+        const lead = [];
+        while (r.extra.length && !DETAIL_START.test(r.extra[0])) lead.push(r.extra.shift());
+        const amtM = AMOUNT_END.exec(r.head);
+        if (amtM) { r.sign = amtM[1] === "+" ? 1 : -1; r.amountCents = toCents(amtM[2]); }
+        r.head = [...r.titleBefore, ...lead].join(" ");
+      } else if (r.titleBefore.length) {
+        r.extra = [...r.titleBefore, ...r.extra];
+      }
       if (r.amountCents === null) {
         const endM2 = AMOUNT_END.exec(r.head);
         if (endM2) {
