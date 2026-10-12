@@ -1316,5 +1316,5 @@ button, [role="button"], .btn, .chip, .list-item, .account-pill, .icon-btn, .lin
 .imp-detail-v { word-break: break-word; font-variant-numeric: tabular-nums; }
 .imp-name-wrap { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
 .imp-name-wrap .imp-desc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.imp-pencil { flex-shrink: 0; border: 0; background: none; color: var(--muted, #888); font-size: 14px; padding: 2px 4px; line-height: 1; }
+.imp-pencil { flex-shrink: 0; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 9px; background: var(--fill); color: var(--text); font-size: 17px; padding: 0; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .imp-name-edit { flex: 1; min-width: 0; font: inherit; font-weight: 600; color: var(--text); background: var(--bg-elevated); border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; }
