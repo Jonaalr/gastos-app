@@ -66,14 +66,16 @@ function categoryOptions(categories) {
 }
 
 async function renderImportStatement(root, params) {
-  const [accounts, categories, allTx, memory, installmentPlans, transferMemory] = await Promise.all([
+  const [accounts, categories, allTx, memory, installmentPlans, transferMemory, peopleList] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("categories"),
     DB.getAll("transactions"),
     DB.getMeta("merchantCategories", {}),
     DB.getMeta("installments", []),
     DB.getMeta("transferAccounts", {}),
+    DB.getAll("people"),
   ]);
+  peopleList.sort((a, b) => a.name.localeCompare(b.name));
   const activeAccounts = accounts.filter((a) => !a.archived).sort(accountPickerCompare);
   const expenseCategories = categories.filter((c) => c.kind === "expense");
   const creditAccounts = activeAccounts.filter((a) => a.type === "credit");
@@ -211,6 +213,10 @@ async function renderImportStatement(root, params) {
           categoryId: refund || transfer ? null : StatementImporters.suggestCategoryId(m.description, expenseCategories, memory),
           manual: false,
           shared: false,
+          reimburse: false, // abono de una persona: reembolso (no ingreso)
+          personChoice: "", // "" | id de persona | "__new"
+          personId: null,
+          newPersonName: "",
         };
       });
 
@@ -420,15 +426,48 @@ async function renderImportStatement(root, params) {
       renderReviewKeepScroll();
     });
 
-    const tags = row.cardPayment ? [] : [transferBtn, ...(row.transfer ? [] : [shareBtn])];
+    // Abono de una persona (te pagó algo): reembolso ligado a ella, no ingreso
+    const reimburseBtn = el("button", { type: "button", class: `imp-share${row.reimburse ? " on" : ""}` }, row.reimburse ? "✓ Reembolso de…" : "Reembolso de…");
+    reimburseBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      row.reimburse = !row.reimburse;
+      if (row.reimburse) { row.transfer = false; }
+      renderReviewKeepScroll();
+    });
+
+    const tags = row.cardPayment ? [] : [transferBtn, ...(row.transfer || !row.refund ? [] : [reimburseBtn]), ...(row.transfer ? [] : [shareBtn])];
     if (m.holder === "digital") tags.push(el("span", { class: "imp-tag" }, "Tarjeta digital"));
-    if (row.refund) tags.push(el("span", { class: "imp-tag ok" }, "Ingreso"));
+    if (row.refund && !row.reimburse) tags.push(el("span", { class: "imp-tag ok" }, "Ingreso"));
+    if (row.refund && row.reimburse) tags.push(el("span", { class: "imp-tag ok" }, "Reembolso · no es ingreso"));
     if (row.cardPayment) tags.push(el("span", { class: "imp-tag" }, "Pago de tarjeta · no es gasto"));
     else if (row.transfer) tags.push(el("span", { class: "imp-tag" }, "Entre mis cuentas · no es gasto"));
     if (row.dup) tags.push(el("span", { class: "imp-tag warn" }, row.dup.label));
 
     // Tarjeta destino del pago (solo transferencias)
     const destList = row.cardPayment ? creditAccounts : otherAccounts;
+    let reimbursePanel = null;
+    if (row.refund && row.reimburse) {
+      const personSel = el("select", { class: "imp-cat" }, [
+        el("option", { value: "" }, "Elige la persona"),
+        ...peopleList.map((p) => el("option", { value: String(p.id) }, p.name)),
+        el("option", { value: "__new" }, "+ Nueva persona"),
+      ]);
+      personSel.value = row.personChoice || "";
+      personSel.addEventListener("change", () => {
+        row.personChoice = personSel.value;
+        row.personId = personSel.value && personSel.value !== "__new" ? Number(personSel.value) : null;
+        renderReviewKeepScroll();
+      });
+      const children = [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, "Reembolso de"), personSel];
+      if (row.personChoice === "__new") {
+        const newInput = el("input", { class: "imp-cat", placeholder: "Nombre de la persona" });
+        newInput.value = row.newPersonName || "";
+        newInput.addEventListener("input", () => { row.newPersonName = newInput.value; });
+        children.push(newInput);
+      }
+      reimbursePanel = el("div", {}, children);
+    }
+
     const destSelect = row.transfer
       ? el("select", { class: "imp-cat" }, destList.length
           ? destList.map((a) => el("option", { value: a.id }, accountPickerLabel(a)))
@@ -448,6 +487,7 @@ async function renderImportStatement(root, params) {
         el("div", { class: "imp-sub" }, [el("span", {}, DateUtil.formatShort(m.date)), ...tags]),
         ...(destSelect ? [el("div", { class: "field-hint", style: "margin:6px 0 2px;" }, row.cardPayment ? "Tarjeta a la que se pagó" : "Cuenta a la que se fue")] : []),
         ...(destSelect ? [destSelect] : [select]),
+        ...(reimbursePanel ? [reimbursePanel] : []),
         comment,
       ]),
     ]);
@@ -481,18 +521,71 @@ async function renderImportStatement(root, params) {
   }
 
   // ---------- Guardar ----------
+  /** Abono de una persona: cobro + reembolso. Ya está en el saldo (viene del estado de cuenta). */
+  async function saveImportedReimbursement(r, batch, now) {
+    let personId = r.personId;
+    if (!personId) personId = await DB.add("people", { name: r.newPersonName.trim(), createdAt: now });
+    const person = await DB.get("people", personId);
+    const note = [r.comment && r.comment.trim(), r.m.rawDescription.replace(/\s+/g, " ")].filter(Boolean).join(" · ");
+    const colId = await DB.add("collections", {
+      personId,
+      amountCents: r.m.amountCents,
+      method: "transfer",
+      date: r.m.date,
+      note,
+      accountId: state.accountId,
+      cycleId: null,
+      createdAt: now,
+    });
+    const txId = await saveTransactionWithBalances({
+      type: "income",
+      amountCents: r.m.amountCents,
+      accountId: state.accountId,
+      toAccountId: null,
+      categoryId: null,
+      merchant: `Reembolso · ${person ? person.name : "Persona"}`,
+      note,
+      date: r.m.date,
+      isRecurring: false,
+      recurringDay: null,
+      attachment: null,
+      source: "reembolso",
+      reimbursement: true,
+      collectionId: colId,
+      pendingSplit: false,
+      importKey: r.importKey,
+      importBatch: batch,
+      balanceApplied: false,
+      createdAt: now,
+    });
+    const saved = await DB.get("collections", colId);
+    saved.reimbursementTxId = txId;
+    await DB.put("collections", saved);
+  }
+
   async function doImport() {
     const go = reviewBox.querySelector("#imp-go");
     go.disabled = true;
     go.textContent = "Importando…";
     const { info } = state.parsed;
     const chosen = importable();
+    const sinPersona = chosen.some((r) => r.reimburse && r.refund && !r.personId && !(r.personChoice === "__new" && (r.newPersonName || "").trim()));
+    if (sinPersona) {
+      toast("Elige de quién es cada reembolso", "error");
+      go.disabled = false;
+      go.textContent = "Importar";
+      return;
+    }
     const batch = `${info.bank}-${info.last4}-${info.cutDate || "s/f"}`;
     const now = new Date().toISOString();
     const monthCount = {};
 
     try {
       for (const r of chosen) {
+        if (r.reimburse && r.refund) {
+          await saveImportedReimbursement(r, batch, now);
+          continue;
+        }
         await DB.add("transactions", {
           type: r.transfer ? "transfer" : r.refund ? "income" : "expense",
           amountCents: r.m.amountCents,
