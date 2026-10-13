@@ -43,6 +43,16 @@ async function renderTransactions(root, params) {
       return hay.includes(qLower);
     });
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+  const TIPO_LABELS = { gasto: "Gastos", ingreso: "Ingresos", transfer: "Transferencias" };
+  const openTipoSheet = () => {
+    const backdrop = openFilterSheet("Tipo de movimiento", [
+      filterOpt("Todos los movimientos", !tipoF && !pendF, () => { backdrop.remove(); goTo({ tipo: "", pend: "" }); }),
+      filterOpt("Gastos", tipoF === "gasto", () => { backdrop.remove(); goTo({ tipo: "gasto", pend: "" }); }),
+      filterOpt("Ingresos", tipoF === "ingreso", () => { backdrop.remove(); goTo({ tipo: "ingreso", pend: "" }); }),
+      filterOpt("Transferencias", tipoF === "transfer", () => { backdrop.remove(); goTo({ tipo: "transfer", pend: "" }); }),
+      filterOpt("Por repartir", pendF, () => { backdrop.remove(); goTo({ tipo: "", pend: "1" }); }),
+    ]);
+  };
   const goTo = (changes) => {
     const next = new URLSearchParams();
     const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, pend: pendF ? "1" : "", tipo: tipoF, ...changes };
@@ -64,7 +74,7 @@ async function renderTransactions(root, params) {
     const catObj = catF && catF !== "none" ? categories.find((c) => String(c.id) === catF) : null;
     const catName = catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
     const accObj = accF ? accMap[accF] : null;
-    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0) + (pendF ? 1 : 0) + (tipoF ? 1 : 0);
+    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0) + (pendF || tipoF ? 1 : 0);
     return filtersPanel({
       open: txFiltersOpen,
       count,
@@ -73,10 +83,7 @@ async function renderTransactions(root, params) {
         iconChip("calendar", `${periodLabelFor(pinfo)} ▾`, ranged || allTime, () => openPeriodSheet(pinfo, (c) => goTo(c))),
         iconChip("tag", `${catName} ▾`, !!catF, () => openCategorySheet(categories, catF, (c) => goTo(c))),
         iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountFilterSheet(accounts, accF, (c) => goTo(c))),
-        iconChip("handshake", "Por repartir", pendF, () => goTo({ pend: pendF ? "" : "1" })),
-        iconChip("card", "Gastos", tipoF === "gasto", () => goTo({ tipo: tipoF === "gasto" ? "" : "gasto" })),
-        iconChip("banknote", "Ingresos", tipoF === "ingreso", () => goTo({ tipo: tipoF === "ingreso" ? "" : "ingreso" })),
-        iconChip("transfer", "Transferencias", tipoF === "transfer", () => goTo({ tipo: tipoF === "transfer" ? "" : "transfer" })),
+        iconChip("filter", `${pendF ? "Por repartir" : TIPO_LABELS[tipoF] || "Tipo"} ▾`, pendF || !!tipoF, () => openTipoSheet()),
       ],
     });
   };
