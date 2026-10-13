@@ -81,9 +81,12 @@ function reconcileStatement(parsed, allTx, accountId) {
 
   const bankTotal = charges.reduce((s, m) => s + m.amountCents, 0);
   // Mismo rango que la búsqueda de coincidencias, para que "Tu registro" y "Cuadran" hablen de los mismos movimientos
-  const myTotal = pool.reduce((s, t) => s + t.amountCents, 0);
+  // Incluye también los ya importados (no solo los que están en la búsqueda de coincidencias)
+  const myTotal = accountTx
+    .filter((t) => t.date >= poolFrom && t.date <= poolTo)
+    .reduce((s, t) => s + t.amountCents, 0);
 
-  return { empty: false, info, periodFrom: poolFrom, periodTo: poolTo, bankTotal, myTotal, matched, missing, extra };
+  return { empty: false, info, periodFrom: start, periodTo: end, bankTotal, myTotal, matched, missing, extra };
 }
 
 /**
