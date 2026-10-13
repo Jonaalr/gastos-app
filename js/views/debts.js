@@ -77,7 +77,8 @@ async function renderDebts(root, params) {
   if (showCards && creditCards.length > 0) {
     root.appendChild(sectionLine());
     root.appendChild(sectionTitle("Tarjetas de crédito"));
-    for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
+    // Mismo formato que la tarjeta en Cuentas (disponible, gastado, corte y pago)
+    for (const { a } of creditCards) root.appendChild(el("div", { style: "margin-top:12px;" }, [renderAccountCard(a)]));
   }
   if (showPlans) {
     root.appendChild(sectionLine());
@@ -104,18 +105,6 @@ function debtCard(d) {
     ]),
     el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
     el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Pagado ${Money.format(paid)} de ${Money.format(d.totalCents)}`),
-  ]);
-}
-
-/** Tarjeta de crédito: lo que debes en ella. Al tocarla abre la cuenta. */
-function creditCardRow(a, info) {
-  const pct = info.limit > 0 ? Math.min(100, Math.round((info.spent / info.limit) * 100)) : 0;
-  return el("div", { class: "card", style: "margin-top:12px;cursor:pointer;", onclick: () => Router.navigate(`/account?id=${a.id}`) }, [
-    el("div", { class: "flex-between" }, [
-      el("div", {}, [el("div", { class: "title", style: "font-weight:700;" }, a.name), el("div", { class: "meta muted", style: "font-size:12px;" }, info.limit ? `${pct}% de ${Money.format(info.limit)}` : "Tarjeta de crédito")]),
-      el("strong", { style: "white-space:nowrap;margin-left:10px;" }, `Debes ${Money.format(info.spent)}`),
-    ]),
-    info.limit ? el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: "goal-fill", style: `width:${pct}%` })]) : null,
   ]);
 }
 
