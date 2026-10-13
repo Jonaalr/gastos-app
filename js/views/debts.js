@@ -51,13 +51,32 @@ async function renderDebts(root, params) {
   if (debts.length > 0 || plans.length > 0 || creditCards.length > 0) {
     const totalDebt = debts.reduce((s, d) => s + d.totalCents, 0) + plans.reduce((s, p) => s + p.monthlyCents * p.totalMonths, 0);
     const totalPaid = debts.reduce((s, d) => s + debtPaidCents(d), 0) + plans.reduce((s, p) => s + p.monthlyCents * p.paidMonths, 0);
-    const totalRemaining = debts.reduce((s, d) => s + debtRemainingCents(d), 0) + plans.reduce((s, p) => s + installmentRemainingCents(p), 0) + cardsOwed;
+    const debtRem = debts.reduce((s, d) => s + debtRemainingCents(d), 0);
+    const planRem = plans.reduce((s, p) => s + installmentRemainingCents(p), 0);
+    const totalRemaining = debtRem + planRem + cardsOwed;
+    const pct = totalDebt > 0 ? Math.min(100, Math.round((totalPaid / totalDebt) * 100)) : 0;
+    // Próxima fecha de pago de tarjeta (la más cercana con saldo)
+    const nextDue = creditCards
+      .filter((c) => c.info.spent > 0 && c.a.dueDay)
+      .map((c) => ({ name: c.a.name, iso: DateUtil.nextOccurrence(c.a.dueDay) }))
+      .sort((x, y) => x.iso.localeCompare(y.iso))[0];
+    const breakdown = (label, amount, color) => el("div", { style: "display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:14px;" }, [
+      el("span", { style: "display:flex;align-items:center;gap:8px;" }, [el("span", { style: `width:8px;height:8px;border-radius:50%;background:${color};` }), label]),
+      el("strong", {}, Money.format(amount)),
+    ]);
+    const rows = [
+      debts.length > 0 ? breakdown("Préstamos y deudas", debtRem, "#f59e0b") : null,
+      plans.length > 0 ? breakdown("Compras a meses", planRem, "#6366f1") : null,
+      cardsOwed > 0 ? breakdown("Tarjetas de crédito", cardsOwed, "#ef4444") : null,
+    ].filter(Boolean);
     root.appendChild(
-      el("div", { class: "card" }, [
-        el("div", { class: "card-title" }, "Falta por pagar en total"),
-        el("div", { class: "debt-total", style: `color:${totalRemaining > 0 ? "var(--danger)" : "var(--income)"}` }, Money.format(totalRemaining)),
-        el("div", { class: "muted" }, `${Money.format(totalPaid)} pagado de ${Money.format(totalDebt)}`),
-        cardsOwed > 0 ? el("div", { class: "muted", style: "font-size:12px;margin-top:4px;" }, `Incluye ${Money.format(cardsOwed)} de tarjetas de crédito`) : null,
+      el("div", { class: "card debt-summary" }, [
+        el("div", { class: "muted", style: "font-size:12px;text-transform:uppercase;letter-spacing:0.04em;" }, "Falta por pagar en total"),
+        el("div", { style: `font-size:32px;font-weight:800;letter-spacing:-0.02em;margin-top:4px;color:${totalRemaining > 0 ? "var(--danger)" : "var(--income)"};` }, Money.format(totalRemaining)),
+        totalDebt > 0 ? el("div", { class: "goal-bar", style: "margin-top:12px;" }, [el("div", { class: `goal-fill${pct >= 100 ? " done" : ""}`, style: `width:${pct}%` })]) : null,
+        totalDebt > 0 ? el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `${pct}% pagado · ${Money.format(totalPaid)} de ${Money.format(totalDebt)}`) : null,
+        rows.length ? el("div", { style: "margin-top:12px;" }, rows) : null,
+        nextDue ? el("div", { class: "muted", style: "font-size:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);" }, `Próximo pago de tarjeta: ${nextDue.name} · vence ${DateUtil.formatShort(nextDue.iso)}`) : null,
       ])
     );
   }
@@ -77,8 +96,7 @@ async function renderDebts(root, params) {
   if (showCards && creditCards.length > 0) {
     root.appendChild(sectionLine());
     root.appendChild(sectionTitle("Tarjetas de crédito"));
-    // Mismo formato que la tarjeta en Cuentas (disponible, gastado, corte y pago)
-    for (const { a } of creditCards) root.appendChild(el("div", { style: "margin-top:12px;" }, [renderAccountCard(a)]));
+    for (const { a, info } of creditCards) root.appendChild(creditCardRow(a, info));
   }
   if (showPlans) {
     root.appendChild(sectionLine());
@@ -105,6 +123,18 @@ function debtCard(d) {
     ]),
     el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: `goal-fill${done ? " done" : ""}`, style: `width:${pct}%` })]),
     el("div", { class: "muted", style: "font-size:12px;margin-top:6px;" }, `Pagado ${Money.format(paid)} de ${Money.format(d.totalCents)}`),
+  ]);
+}
+
+/** Tarjeta de crédito: lo que debes en ella. Al tocarla abre la cuenta. */
+function creditCardRow(a, info) {
+  const pct = info.limit > 0 ? Math.min(100, Math.round((info.spent / info.limit) * 100)) : 0;
+  return el("div", { class: "card", style: "margin-top:12px;cursor:pointer;", onclick: () => Router.navigate(`/account?id=${a.id}`) }, [
+    el("div", { class: "flex-between" }, [
+      el("div", {}, [el("div", { class: "title", style: "font-weight:700;" }, a.name), el("div", { class: "meta muted", style: "font-size:12px;" }, info.limit ? `${pct}% de ${Money.format(info.limit)}` : "Tarjeta de crédito")]),
+      el("strong", { style: "white-space:nowrap;margin-left:10px;" }, `Debes ${Money.format(info.spent)}`),
+    ]),
+    info.limit ? el("div", { class: "goal-bar", style: "margin-top:10px;" }, [el("div", { class: "goal-fill", style: `width:${pct}%` })]) : null,
   ]);
 }
 
