@@ -48,7 +48,8 @@ function reconcileStatement(parsed, allTx, accountId) {
   const start = info.periodStart || dates[0];
   const end = info.periodEnd || dates[dates.length - 1];
   const poolFrom = shiftISO(start < dates[0] ? start : dates[0], -RECONCILE_WINDOW_DAYS);
-  const poolTo = shiftISO(end > dates[dates.length - 1] ? end : dates[dates.length - 1], RECONCILE_WINDOW_DAYS);
+  // Tu registro llega hasta el corte (o al último cargo del banco), sin días extra: lo posterior es del siguiente estado
+  const poolTo = end > dates[dates.length - 1] ? end : dates[dates.length - 1];
 
   const importedKeys = new Set(accountTx.filter((t) => t.importKey).map((t) => t.importKey));
   const pool = accountTx.filter((t) => !t.importKey && t.date >= poolFrom && t.date <= poolTo);
@@ -79,11 +80,10 @@ function reconcileStatement(parsed, allTx, accountId) {
   const extra = pool.filter((t) => !used.has(t.id));
 
   const bankTotal = charges.reduce((s, m) => s + m.amountCents, 0);
-  const myTotal = accountTx
-    .filter((t) => t.date >= start && t.date <= end)
-    .reduce((s, t) => s + t.amountCents, 0);
+  // Mismo rango que la búsqueda de coincidencias, para que "Tu registro" y "Cuadran" hablen de los mismos movimientos
+  const myTotal = pool.reduce((s, t) => s + t.amountCents, 0);
 
-  return { empty: false, info, periodFrom: start, periodTo: end, bankTotal, myTotal, matched, missing, extra };
+  return { empty: false, info, periodFrom: poolFrom, periodTo: poolTo, bankTotal, myTotal, matched, missing, extra };
 }
 
 /**
@@ -228,17 +228,17 @@ function renderReconcileResult(container, result, handlers = {}) {
       : `Registraste ${Money.format(-diff)} de más.`;
 
   container.appendChild(
-    el("div", { class: "card" }, [
-      el("div", { class: "muted" }, `Periodo ${DateUtil.formatShort(result.periodFrom)} – ${DateUtil.formatShort(result.periodTo)}`),
-      el("div", { class: "btn-row" }, [
-        el("div", {}, [el("div", { class: "muted" }, "Según el banco"), el("div", { class: "amount" }, Money.format(result.bankTotal))]),
-        el("div", {}, [el("div", { class: "muted" }, "Tu registro"), el("div", { class: "amount" }, Money.format(result.myTotal))]),
+    el("div", { class: "card rc-summary" }, [
+      el("div", { class: "rc-period" }, `Cargos del ${DateUtil.formatShort(result.periodFrom)} al ${DateUtil.formatShort(result.periodTo)}`),
+      el("div", { class: "rc-totals" }, [
+        el("div", { class: "rc-total" }, [el("span", { class: "rc-label" }, "Según el banco"), el("strong", { class: "rc-value" }, Money.format(result.bankTotal))]),
+        el("div", { class: "rc-total" }, [el("span", { class: "rc-label" }, "Tu registro"), el("strong", { class: "rc-value" }, Money.format(result.myTotal))]),
       ]),
-      el("div", { class: `imp-check-badge ${diff === 0 ? "ok" : "warn"}` }, diffText),
+      el("div", { class: `rc-diff ${diff === 0 ? "ok" : "warn"}` }, diffText),
     ])
   );
 
-  container.appendChild(reconcileGroup(`Cuadran · ${result.matched.length}`, "ok", result.matched.map((r) => {
+  container.appendChild(reconcileGroup(`Cuadran · ${result.matched.length}`, "ok", { collapsible: true }, result.matched.map((r) => {
     return {
       date: r.m.date,
       merchant: r.m.description,
@@ -249,7 +249,7 @@ function renderReconcileResult(container, result, handlers = {}) {
   })));
 
   const missingItems = result.missing;
-  const missingGroup = reconcileGroup(`Falta en tu registro · ${missingItems.length}`, "warn", missingItems.map((r) => ({
+  const missingGroup = reconcileGroup(`Falta en tu registro · ${missingItems.length}`, "warn", {}, missingItems.map((r) => ({
     date: r.m.date,
     merchant: r.m.description,
     amount: r.m.amountCents,
@@ -263,7 +263,7 @@ function renderReconcileResult(container, result, handlers = {}) {
   }
   container.appendChild(missingGroup);
 
-  container.appendChild(reconcileGroup(`Solo en tu registro · ${result.extra.length}`, "warn", result.extra.map((t) => ({
+  container.appendChild(reconcileGroup(`Solo en tu registro · ${result.extra.length}`, "warn", {}, result.extra.map((t) => ({
     date: t.date,
     merchant: t.merchant || "Sin comercio",
     amount: t.amountCents,
@@ -272,18 +272,21 @@ function renderReconcileResult(container, result, handlers = {}) {
   }))));
 }
 
-function reconcileGroup(title, tone, rows) {
-  const list = el("div", { class: "card rc-group" }, [el("div", { class: `imp-check-badge ${tone}` }, title)]);
+function reconcileGroup(title, tone, opts, rows) {
+  const list = el("div", { class: "card rc-group" });
   if (rows.length === 0) {
+    list.appendChild(el("div", { class: `rc-head ${tone}` }, title));
     list.appendChild(el("div", { class: "muted rc-empty" }, "Nada por aquí."));
     return list;
   }
+  // Los que ya cuadran se pueden plegar (suelen ser muchos)
+  const body = el("div", { class: "rc-body" });
   for (const r of rows) {
     const side = [el("div", { class: "rc-amount" }, Money.format(r.amount))];
     if (r.action) {
       side.push(el("button", { class: "btn btn-secondary btn-sm rc-action", onclick: r.action.run }, r.action.label));
     }
-    list.appendChild(
+    body.appendChild(
       el("div", { class: "rc-row" }, [
         el("div", { class: "rc-main" }, [
           el("div", { class: "rc-merchant" }, r.merchant),
@@ -292,6 +295,15 @@ function reconcileGroup(title, tone, rows) {
         el("div", { class: "rc-side" }, side),
       ])
     );
+  }
+  if (opts.collapsible) {
+    const details = el("details", { class: "rc-details" });
+    details.appendChild(el("summary", { class: `rc-head ${tone} rc-toggle` }, title));
+    details.appendChild(body);
+    list.appendChild(details);
+  } else {
+    list.appendChild(el("div", { class: `rc-head ${tone}` }, title));
+    list.appendChild(body);
   }
   return list;
 }
