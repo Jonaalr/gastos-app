@@ -19,6 +19,7 @@ async function renderTransactions(root, params) {
   const catF = params.get("cat") || "";
   const accF = params.get("acc") || "";
   const pendF = params.get("pend") === "1"; // gastos compartidos que falta repartir
+  const tipoF = ["gasto", "ingreso", "transfer"].includes(params.get("tipo")) ? params.get("tipo") : ""; // solo gastos, ingresos o transferencias
   const fromF = params.get("from") || "";
   const toF = params.get("to") || "";
   const ranged = !!(fromF || toF);
@@ -27,6 +28,7 @@ async function renderTransactions(root, params) {
   const txMonth = allTx
     .filter((t) => (q || ranged || allTime || pendF ? true : DateUtil.monthKey(t.date) === monthKey))
     .filter((t) => (pendF ? t.pendingSplit && !t.split : true))
+    .filter((t) => (tipoF ? t.type === { gasto: "expense", ingreso: "income", transfer: "transfer" }[tipoF] : true))
     .filter((t) => (fromF ? t.date >= fromF : true) && (toF ? t.date <= toF : true))
     .filter((t) => {
       if (catF === "none") return !t.categoryId;
@@ -43,7 +45,7 @@ async function renderTransactions(root, params) {
   txMonth.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
   const goTo = (changes) => {
     const next = new URLSearchParams();
-    const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, pend: pendF ? "1" : "", ...changes };
+    const values = { month: monthKey, q, cat: catF, acc: accF, from: fromF, to: toF, pend: pendF ? "1" : "", tipo: tipoF, ...changes };
     const dropMonth = !!(values.q || values.from || values.to || values.todo || values.pend);
     for (const [k, v] of Object.entries(values)) if (v && !(k === "month" && dropMonth)) next.set(k, v);
     Router.navigate(`/transactions?${next.toString()}`);
@@ -62,7 +64,7 @@ async function renderTransactions(root, params) {
     const catObj = catF && catF !== "none" ? categories.find((c) => String(c.id) === catF) : null;
     const catName = catF === "none" ? "Sin categoría" : catObj ? catObj.name : "Categoría";
     const accObj = accF ? accMap[accF] : null;
-    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0) + (pendF ? 1 : 0);
+    const count = (ranged || allTime ? 1 : 0) + (catF ? 1 : 0) + (accF ? 1 : 0) + (pendF ? 1 : 0) + (tipoF ? 1 : 0);
     return filtersPanel({
       open: txFiltersOpen,
       count,
@@ -72,6 +74,9 @@ async function renderTransactions(root, params) {
         iconChip("tag", `${catName} ▾`, !!catF, () => openCategorySheet(categories, catF, (c) => goTo(c))),
         iconChip("bank", `${accObj ? accObj.name : "Cuenta"} ▾`, !!accF, () => openAccountFilterSheet(accounts, accF, (c) => goTo(c))),
         iconChip("handshake", "Por repartir", pendF, () => goTo({ pend: pendF ? "" : "1" })),
+        iconChip("card", "Gastos", tipoF === "gasto", () => goTo({ tipo: tipoF === "gasto" ? "" : "gasto" })),
+        iconChip("banknote", "Ingresos", tipoF === "ingreso", () => goTo({ tipo: tipoF === "ingreso" ? "" : "ingreso" })),
+        iconChip("transfer", "Transferencias", tipoF === "transfer", () => goTo({ tipo: tipoF === "transfer" ? "" : "transfer" })),
       ],
     });
   };
