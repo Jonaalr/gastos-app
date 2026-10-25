@@ -269,6 +269,15 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
   // Domiciliado: la fecha que se muestra es el próximo cargo (la misma que ves en Pagos)
   const nextDue = data.isRecurring && data.id && data.recurringDay ? DateUtil.nextOccurrence(data.recurringDay) : null;
+  // Gastos recientes que este ingreso puede reembolsar (solo para ingresos)
+  const reimbCutoff = DateUtil.daysAgoISO ? DateUtil.daysAgoISO(120) : new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10);
+  const reimbExpenses = (await DB.getAll("transactions"))
+    .filter((t) => t.type === "expense" && t.date >= reimbCutoff && t.balanceApplied !== false)
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+    .slice(0, 80);
+  const reimbOptions = `<option value="">Ninguno</option>` + reimbExpenses
+    .map((t) => `<option value="${t.id}" ${data.reimbursesTxId === t.id ? "selected" : ""}>${DateUtil.formatShort(t.date)} · ${escapeHtml(t.merchant || "Gasto")} · ${Money.format(t.amountCents)}</option>`)
+    .join("");
   sheet.innerHTML = `
     <div class="sheet-header">
       <h2>${existing ? "Editar" : "Nueva"} transacción</h2>
@@ -306,6 +315,12 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     <div class="form-group" id="group-category" style="display:${data.type === "transfer" ? "none" : "block"}">
       <label>Categoría</label>
       <select id="f-category">${data.type === "income" ? catOptionsIncome : catOptionsExpense}</select>
+    </div>
+
+    <div class="form-group" id="group-reimb" style="display:${data.type === "income" ? "block" : "none"}">
+      <label>¿Es reembolso de un gasto?</label>
+      <select id="f-reimb">${reimbOptions}</select>
+      <div class="field-hint">Si eliges un gasto, este ingreso no cuenta como ingreso en tus reportes.</div>
     </div>
 
     <div class="form-group" id="group-split" style="display:${data.type === "expense" ? "block" : "none"}">
@@ -357,6 +372,7 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       sheet.querySelector("#group-merchant").style.display = currentType === "transfer" ? "none" : "block";
       sheet.querySelector("#group-category").style.display = currentType === "transfer" ? "none" : "block";
       sheet.querySelector("#group-split").style.display = currentType === "expense" ? "block" : "none";
+      sheet.querySelector("#group-reimb").style.display = currentType === "income" ? "block" : "none";
       sheet.querySelector("#group-recurring").style.display = currentType === "expense" ? "block" : "none";
       sheet.querySelector("#label-account").textContent = currentType === "transfer" ? "Cuenta origen" : "Cuenta";
       const acctSel = sheet.querySelector("#f-account");
@@ -590,6 +606,10 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       // Marcado como compartido en la importación: se quita al repartirlo
       pendingSplit: splitRecord ? false : !!existing?.pendingSplit,
       source: data.source || "manual",
+      // Reembolso de un gasto: se guarda el vínculo y no cuenta como ingreso
+      ...(currentType === "income" && sheet.querySelector("#f-reimb")?.value
+        ? { reimbursement: true, reimbursesTxId: parseInt(sheet.querySelector("#f-reimb").value, 10) }
+        : {}),
       createdAt: existing?.createdAt || new Date().toISOString(),
       // Cargo de domiciliado: conserva su ciclo al editarlo
       ...(existing?.cycleId ? { cycleId: existing.cycleId } : {}),
