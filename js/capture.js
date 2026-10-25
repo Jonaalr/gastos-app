@@ -163,7 +163,8 @@ async function recognizeCaptureText(file) {
 // ---------- Lectura del texto ----------
 
 const CAPTURE_BANKS = [
-  { re: /revolut/i, name: "Revolut", prefer: null },
+  // La notificación de Revolut a veces no trae la palabra "Revolut": se reconoce por su formato ("Gastaste $X · Gastos de hoy")
+  { re: /revolut/i, textRe: /revolut|gastaste\s*\$|gastos de hoy/i, name: "Revolut", prefer: null },
   { re: /banamex/i, name: "Banamex", prefer: "credit" },
   { re: /mercado\s?pago/i, name: "Mercado Pago", prefer: null },
 ];
@@ -184,7 +185,7 @@ function parseCapture(rawText, accounts = []) {
   const date = parseCaptureDate(flat) || DateUtil.todayISO();
   const merchant = parseCaptureMerchant(lines, flat);
 
-  const bank = CAPTURE_BANKS.find((b) => b.re.test(flat)) || null;
+  const bank = CAPTURE_BANKS.find((b) => (b.textRe || b.re).test(flat)) || null;
   const account = bank ? pickAccountForBank(bank, accounts) : null;
 
   const notice = bank
