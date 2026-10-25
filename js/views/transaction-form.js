@@ -272,9 +272,9 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   // Gastos recientes que este ingreso puede reembolsar (solo para ingresos)
   const reimbCutoff = DateUtil.daysAgoISO ? DateUtil.daysAgoISO(120) : new Date(Date.now() - 120 * 86400000).toISOString().slice(0, 10);
   const reimbExpenses = (await DB.getAll("transactions"))
-    .filter((t) => t.type === "expense" && t.date >= reimbCutoff && t.balanceApplied !== false)
+    .filter((t) => t.type === "expense" && t.date >= reimbCutoff)
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-    .slice(0, 80);
+    .slice(0, 300);
   const reimbOptions = `<option value="">Ninguno</option>` + reimbExpenses
     .map((t) => `<option value="${t.id}" ${data.reimbursesTxId === t.id ? "selected" : ""}>${DateUtil.formatShort(t.date)} · ${escapeHtml(t.merchant || "Gasto")} · ${Money.format(t.amountCents)}</option>`)
     .join("");
