@@ -71,7 +71,11 @@ async function renderDueRecurring(root) {
     loadRecurringStatus(),
   ]);
   const series = buildRecurringSeries(allTx);
-  const due = dueRecurringThisMonth(series, status, DateUtil.todayISO());
+  // Si ya hay un gasto de la misma serie este mes (aunque no esté marcado como domiciliado,
+  // p. ej. importado del estado de cuenta), no se vuelve a pedir confirmación
+  const mk = DateUtil.todayISO().slice(0, 7);
+  const paidKeys = new Set(allTx.filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === mk).map(recurringSeriesKey));
+  const due = dueRecurringThisMonth(series, status, DateUtil.todayISO()).filter((s) => !paidKeys.has(s.key));
   if (due.length === 0) return;
 
   const accMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
