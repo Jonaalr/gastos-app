@@ -81,11 +81,11 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     });
   }
 
-  // Gasto: sin cuentas de rendimiento. Ingreso: sin tarjetas de crédito. Transferencia: todas.
+  // Gasto: sin cuentas de rendimiento (salvo las marcadas "puedo pagar gastos"). Ingreso: sin tarjetas de crédito. Transferencia: todas.
   // Siempre en orden alfabético.
   function accountOptions(selectedId, type = data.type) {
     return accounts
-      .filter((a) => (type === "expense" ? a.type !== "savings" : type === "income" ? a.type !== "credit" : true))
+      .filter((a) => (type === "expense" ? a.type !== "savings" || a.spendable : type === "income" ? a.type !== "credit" : true))
       .slice()
       .sort(accountPickerCompare)
       .map((a) => `<option value="${a.id}" ${a.id === selectedId ? "selected" : ""}>${accountPickerLabel(a)}</option>`)

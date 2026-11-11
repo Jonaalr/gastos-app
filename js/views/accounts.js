@@ -392,6 +392,8 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
         <div><div class="sv-k">Rinde al mes (30 días)</div><div class="sv-v" id="f-prev-month">—</div></div>
         <div class="sv-note" id="f-prev-note"></div>
       </div>
+
+      <label class="checkbox-row" style="margin:12px 0 0;"><input type="checkbox" id="f-spendable" ${data.spendable ? "checked" : ""}> Puedo pagar gastos desde esta cuenta (p. ej. DiDi)</label>
     </div>
 
     <div class="btn-row mt-8">
@@ -539,6 +541,7 @@ async function openAccountSheet({ existing = null, onSaved = null } = {}) {
       capCents: type === "savings" && Money.toCents($("#f-cap").value || "0") > 0 ? Money.toCents($("#f-cap").value) : null,
       aboveCapRatePct: type === "savings" && $("#f-cap-rate").value !== "" ? Math.max(0, parseFloat($("#f-cap-rate").value) || 0) : null,
       rateUpdatedAt: type === "savings" ? DateUtil.todayISO() : null,
+      spendable: type === "savings" && $("#f-spendable").checked,
     };
     if (existing) record.id = existing.id;
 
