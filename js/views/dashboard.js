@@ -4,6 +4,7 @@
 
 async function renderDashboard(root) {
   await capitalizeSavings();
+  await computeReceivables(); // registra los cargos de domiciliados compartidos que ya llegaron, antes de leer los movimientos
   const [accounts, transactions, userName] = await Promise.all([
     DB.getAll("accounts"),
     DB.getAll("transactions"),
@@ -25,13 +26,7 @@ async function renderDashboard(root) {
 
   // Pagos del mes que aún no se registran (domiciliados sin confirmar, no cancelados ni omitidos)
   const recStatus = await DB.getMeta("recurringStatus", {});
-  const pendingRecurring = buildRecurringSeries(transactions)
-    .filter((sr) => {
-      const st = recStatus[sr.key] || {};
-      if (st.cancelled || (st.skipped && st.skipped.includes(thisMonth))) return false;
-      return !sr.txs.some((t) => DateUtil.monthKey(t.date) === thisMonth);
-    })
-    .reduce((sum, sr) => sum + sr.last.amountCents, 0);
+  const pendingRecurring = pendingRecurringCents(transactions, recStatus);
   const availableToSpend = afterDebt - pendingRecurring;
 
   const recent = [...transactions].sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)).slice(0, 8);
@@ -352,8 +347,7 @@ async function renderPendingCard(accounts, transactions, recStatus, catMap) {
     ]);
 
   // Domiciliados que ya debieron cobrarse este mes y falta confirmar
-  const paidKeys = new Set(transactions.filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === mk).map(recurringSeriesKey));
-  const toConfirm = dueRecurringThisMonth(buildRecurringSeries(transactions), recStatus, today).filter((s) => !paidKeys.has(s.key));
+  const toConfirm = dueRecurringThisMonth(buildRecurringSeries(transactions), recStatus, today, transactions);
   if (toConfirm.length) {
     const names = toConfirm.slice(0, 2).map((s) => s.last.merchant || "Domiciliado").join(", ");
     rows.push(row("repeat", toConfirm.length === 1 ? "1 domiciliado por confirmar" : `${toConfirm.length} domiciliados por confirmar`, toConfirm.length > 2 ? `${names} y más` : names, "/calendar"));

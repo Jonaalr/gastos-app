@@ -200,6 +200,8 @@ async function openQuickAdd({ prefill = null, onSaved = null } = {}) {
       </div>
     </div>
 
+    <button type="button" class="qa-split" id="qa-split">${svgIcon("users", 16)}<span>Repartir con alguien</span></button>
+
     <div class="qa-keypad" id="qa-keypad">
       ${["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"]
         .map((k) => `<button type="button" class="qa-key" data-key="${k}" ${k === "back" ? 'aria-label="Borrar"' : ""}>${k === "back" ? svgIcon("backspace", 22) : k}</button>`)
@@ -321,6 +323,7 @@ async function openQuickAdd({ prefill = null, onSaved = null } = {}) {
     openTransactionSheet({ prefill: currentPrefill(extra), onSaved });
   };
   $("#qa-more").addEventListener("click", () => openFull());
+  $("#qa-split").addEventListener("click", () => openFull({ splitOpen: true }));
   sheet.querySelectorAll(".qa-type button").forEach((btn) =>
     btn.addEventListener("click", () => {
       if (btn.dataset.type !== "expense") openFull({ type: btn.dataset.type, accountId: null, categoryId: null });

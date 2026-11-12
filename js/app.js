@@ -245,6 +245,11 @@ async function main() {
   registerRoutes();
   await seedIfNeeded();
   await capitalizeSavings();
+  // Un solo gasto marcado por domiciliado y sin plantillas repetidas (corrige datos de versiones anteriores)
+  try {
+    const fix = await normalizeRecurringSeries();
+    if (fix.removed.length) setTimeout(() => toast(`Se quitó ${fix.removed.length === 1 ? "un cargo repetido" : `${fix.removed.length} cargos repetidos`} de domiciliados compartidos`, "info"), 1200);
+  } catch (err) { console.error(err); }
 
   if ("serviceWorker" in navigator) {
     // Si sale una versión nueva, recarga una sola vez para mostrarla sin que tengas que abrir la app dos veces

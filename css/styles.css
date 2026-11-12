@@ -1498,3 +1498,23 @@ body[data-route="/import"] #imp-review { padding-bottom: 130px; }
 
 /* Movimientos: total gastado en el día */
 .day-total { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+/* ---------- Reparto: "Ya pagó" con texto, y acceso desde el registro rápido ---------- */
+.split-paid {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  white-space: nowrap; margin: 0; cursor: pointer;
+}
+.split-paid.on { color: var(--accent); }
+.split-amt input[type="number"] { width: 96px; }
+.qa-split {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px; padding: 4px 2px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px; font-weight: 600;
+}
+.qa-typing .qa-split { display: none; }
+@media (max-height: 740px) { .qa-split { margin-top: 6px; } }
+.split-row .split-paid .split-paid-chk { width: 20px; height: 20px; flex: 0 0 20px; min-height: 0; display: block; }
+.split-paid span { line-height: 20px; }

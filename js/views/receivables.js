@@ -36,7 +36,8 @@ function cycleLines(cycle, tpl, collections, people) {
 /**
  * Ciclos de los domiciliados compartidos: cada cargo mensual es un ciclo.
  * Se crea el siguiente cuando el actual ya lo pagaron todos o cuando llegó su fecha (lo que pase primero),
- * así un cargo que ya se cobró no se pierde aunque alguien tarde en pagar.
+ * así un cargo que ya se cobró no se pierde aunque alguien tarde en pagar: se registra el gasto
+ * y la deuda de cada persona se acumula mes con mes.
  */
 async function syncDomCycles(transactions, collections, people) {
   const today = DateUtil.todayISO();
@@ -60,9 +61,10 @@ async function syncDomCycles(transactions, collections, people) {
       }
     }
     if (!mine.length) {
-      // Sin historia retroactiva: si el gasto es de un mes pasado, el primer ciclo es el próximo cargo
+      // Sin historia retroactiva: si el gasto es de un mes pasado, el primer ciclo es el cargo de este mes
+      // (aunque su día ya haya pasado: ese cargo sí ocurrió)
       const sameOrLaterMonth = DateUtil.monthKey(tpl.date) >= DateUtil.monthKey(today);
-      const dueDate = sameOrLaterMonth ? tpl.date : DateUtil.nextOccurrence(tpl.recurringDay);
+      const dueDate = sameOrLaterMonth ? tpl.date : recurringDueISO(tpl.recurringDay, DateUtil.monthKey(today));
       const first = { id: uid(), txId: tpl.id, dueDate };
       cycles.push(first);
       mine = [first];
@@ -72,9 +74,10 @@ async function syncDomCycles(transactions, collections, people) {
       const last = mine[mine.length - 1];
       const lines = cycleLines(last, tpl, collections, people);
       const paidAll = lines.every((l) => l.paidCents >= l.shareCents);
-      // El siguiente cargo aparece solo cuando el actual ya lo pagaron todos
-      if (!paidAll) break;
-      const next = { id: uid(), txId: tpl.id, dueDate: addMonthsISO(last.dueDate, 1, tpl.recurringDay) };
+      // El siguiente cargo aparece cuando el actual ya lo pagaron todos, o cuando ya llegó su fecha
+      const nextDue = addMonthsISO(last.dueDate, 1, tpl.recurringDay);
+      if (!paidAll && nextDue > today) break;
+      const next = { id: uid(), txId: tpl.id, dueDate: nextDue };
       cycles.push(next);
       mine.push(next);
       changed = true;

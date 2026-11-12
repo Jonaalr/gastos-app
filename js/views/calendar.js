@@ -86,7 +86,7 @@ async function renderCalendar(root) {
   const peopleNames = Object.fromEntries((await DB.getAll("people")).map((p) => [p.id, p.name]));
   const latestByKey = new Map();
   for (const t of recurring) {
-    const key = `${t.merchant}-${t.categoryId}-${t.accountId}`;
+    const key = recurringSeriesKey(t);
     const cur = latestByKey.get(key);
     if (!cur || (t.date || "") > (cur.date || "")) latestByKey.set(key, t);
   }

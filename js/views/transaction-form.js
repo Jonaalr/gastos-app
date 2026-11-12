@@ -107,7 +107,9 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   // Cargo ya ligado a un domiciliado: quiénes ya pagaron este cargo (lo que muestra Pagos)
   const linkedPaid = !data.isRecurring && data.cycleId && data.split ? await cyclePaidIds(data.cycleId, data.split) : null;
   const split = {
-    enabled: !!data.split,
+    enabled: !!data.split || !!(prefill && prefill.splitOpen),
+    // "Yo" participo en el gasto. Se apaga cuando pagaste algo que es solo de otras personas.
+    includeMe: data.split ? data.split.myShareCents > 0 || data.split.participants.length === 0 : true,
     selected: new Set(data.split ? data.split.participants.map((p) => p.personId) : []),
     mode: data.split ? "manual" : "equal",
     manual: new Map(data.split ? data.split.participants.map((p) => [p.personId, p.shareCents]) : []),
@@ -128,11 +130,11 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     if (ids.length === 0) return { error: "Elige al menos una persona para dividir el gasto" };
 
     if (split.mode === "equal") {
-      // Partes iguales entre las personas y tú
-      const parts = splitEvenly(total, ids.length + 1);
+      // Partes iguales entre las personas y tú (o solo entre ellas, si tú no participas)
+      const parts = splitEvenly(total, ids.length + (split.includeMe ? 1 : 0));
       return {
         total,
-        myShareCents: parts[ids.length],
+        myShareCents: split.includeMe ? parts[ids.length] : 0,
         participants: ids.map((personId, i) => ({ personId, shareCents: parts[i] })),
       };
     }
@@ -154,7 +156,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     }
     // Te deben: solo lo que aún no te han pagado (las casillas marcadas ya no cuentan)
     const owed = res.participants.filter((p) => !split.paid.has(p.personId)).reduce((s, p) => s + p.shareCents, 0);
-    box.innerHTML = `Tu parte <b>${Money.format(res.myShareCents)}</b> · Te deben <b>${Money.format(owed)}</b>`;
+    const paidCents = res.participants.filter((p) => split.paid.has(p.personId)).reduce((s, p) => s + p.shareCents, 0);
+    box.innerHTML = `Tu parte <b>${Money.format(res.myShareCents)}</b> · Te deben <b>${Money.format(owed)}</b>${paidCents ? ` · Ya te pagaron <b>${Money.format(paidCents)}</b>` : ""}`;
   }
 
   function renderSplitBox() {
@@ -164,7 +167,8 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     const shares = new Map(!res.error ? res.participants.map((p) => [p.personId, p.shareCents]) : []);
     const nameOf = (id) => people.find((p) => p.id === id)?.name || "—";
 
-    const chips = people
+    const meChip = split.mode === "equal" ? `<button type="button" class="chip ${split.includeMe ? "on" : ""}" data-me="1">Yo</button>` : "";
+    const chips = meChip + people
       .map((p) => `<button type="button" class="chip ${split.selected.has(p.id) ? "on" : ""}" data-person="${p.id}">${escapeHtml(p.name)}</button>`)
       .join("");
 
@@ -172,13 +176,13 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     const rows = [...split.selected]
       .map((id) => {
         const paid = split.paid.has(id);
-        const value = paid ? "0" : split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
+        const value = split.mode === "manual" ? Money.toInputValue(split.manual.get(id) ?? shares.get(id) ?? 0) : Money.toInputValue(shares.get(id) ?? 0);
         const accSel = paid && !split.paidInitial.has(id)
           ? `<div class="split-acc"><div class="field-hint" style="margin:0 0 4px;font-size:12px;">¿En qué cuenta tuya recibiste el pago de ${escapeHtml(nameOf(id))}?</div><select data-paid-acc="${id}" aria-label="¿En qué cuenta entró el pago?"><option value="">¿En qué cuenta entró?</option>${payAccounts()
               .map((a) => `<option value="${a.id}" ${a.id === (split.paidAcc.get(id) || defaultPayAccountId()) ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`)
               .join("")}</select></div>`
           : "";
-        const chk = `<input type="checkbox" class="split-paid-chk" data-paid="${id}" title="Ya te pagó" aria-label="Ya te pagó" ${paid ? "checked" : ""}>`;
+        const chk = `<label class="split-paid${paid ? " on" : ""}"><input type="checkbox" class="split-paid-chk" data-paid="${id}" ${paid ? "checked" : ""}><span>Ya pagó</span></label>`;
         return `<div class="split-row">
           <span>${escapeHtml(nameOf(id))}</span>
           <div class="split-amt">
@@ -190,7 +194,10 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       .join("") + (recurringNow && split.selected.size ? `<div class="field-hint" style="margin:6px 0;">Se registra en el cargo pendiente de cada persona.</div>` : "");
 
     box.innerHTML = `
-      <div class="split-chips">${chips || '<span class="field-hint">Aún no tienes personas. Agrega una abajo.</span>'}</div>
+      <div class="field-hint" style="margin:0 0 6px;">¿Entre quiénes se reparte?</div>
+      <div class="split-chips">${chips}</div>
+      ${people.length === 0 ? '<div class="field-hint" style="margin:0 0 6px;">Aún no tienes personas. Agrega una abajo.</div>' : ""}
+      ${!split.includeMe && split.mode === "equal" ? '<div class="field-hint" style="margin:0 0 6px;">Tú no participas: todo el gasto te lo deben.</div>' : ""}
       <div class="split-add">
         <input type="text" id="f-newperson" placeholder="Nombre de una persona">
         <button type="button" class="btn btn-secondary btn-sm" id="f-addperson" style="width:auto;">Agregar</button>
@@ -206,6 +213,9 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
       <div class="field-hint" id="split-summary" style="margin-top:10px;font-size:13px;"></div>
     `;
     box.querySelector("#split-old-pay")?.addEventListener("change", (e) => { split.oldPay = e.target.checked; });
+
+    const meBtn = box.querySelector("[data-me]");
+    if (meBtn) meBtn.addEventListener("click", () => { split.includeMe = !split.includeMe; renderSplitBox(); });
 
     box.querySelectorAll("[data-person]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -390,11 +400,32 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
   });
 
   // Pago entre varios
-  sheet.querySelector("#f-split").addEventListener("change", (e) => {
+  // Al activar el reparto se proponen las personas: las de la última vez con este comercio,
+  // o la única persona que tienes registrada
+  async function suggestSplitPeople() {
+    if (split.selected.size > 0 || people.length === 0) return;
+    const merchant = (sheet.querySelector("#f-merchant").value || "").trim().toLowerCase();
+    const known = new Set(people.map((p) => p.id));
+    if (merchant) {
+      const last = (await DB.getAll("transactions"))
+        .filter((t) => t.type === "expense" && t.split && t.split.participants.length && (t.merchant || "").trim().toLowerCase() === merchant)
+        .sort((a, b) => ((b.date || "") + (b.createdAt || "")).localeCompare((a.date || "") + (a.createdAt || "")))[0];
+      if (last) {
+        for (const part of last.split.participants) if (known.has(part.personId)) split.selected.add(part.personId);
+        if (split.selected.size) { split.includeMe = last.split.myShareCents > 0; return; }
+      }
+    }
+    if (people.length === 1) split.selected.add(people[0].id);
+  }
+  sheet.querySelector("#f-split").addEventListener("change", async (e) => {
     split.enabled = e.target.checked;
     sheet.querySelector("#split-box").style.display = split.enabled ? "block" : "none";
-    if (split.enabled) renderSplitBox();
+    if (split.enabled) {
+      await suggestSplitPeople();
+      renderSplitBox();
+    }
   });
+  if (split.enabled && !data.split) suggestSplitPeople().then(renderSplitBox);
   sheet.querySelector("#f-amount").addEventListener("input", () => {
     if (split.enabled) renderSplitBox();
     refreshTransferBalance();
@@ -641,6 +672,22 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     if (existing) record.id = existing.id;
 
     await saveTransactionWithBalances(record, existing);
+    if (record.isRecurring) {
+      // Si cambió el comercio, la categoría o la cuenta, el domiciliado conserva su estado (cancelado, meses omitidos)
+      if (existing && existing.isRecurring) {
+        const oldKey = recurringSeriesKey(existing);
+        const newKey = recurringSeriesKey(record);
+        if (oldKey !== newKey) {
+          const status = await loadRecurringStatus();
+          if (status[oldKey]) {
+            status[newKey] = { ...status[oldKey], ...(status[newKey] || {}) };
+            delete status[oldKey];
+            await saveRecurringStatus(status);
+          }
+        }
+      }
+      await normalizeRecurringSeries(); // un solo gasto marcado por domiciliado
+    }
     const savedMsg = "Guardado" + (paymentsRecorded.length ? ` · pago de ${paymentsRecorded.join(", ")} registrado` : "") + (paymentsCancelled.length ? ` · pago de ${paymentsCancelled.join(", ")} cancelado` : "");
     toast(alreadyPaid.length ? `${savedMsg} · ${alreadyPaid.join(", ")} ya cubrió el cargo pendiente, no se registró otro pago` : savedMsg, alreadyPaid.length ? "error" : "success");
     close();
