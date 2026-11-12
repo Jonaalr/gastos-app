@@ -43,7 +43,7 @@ async function renderAccountDetail(root, params) {
       el("div", { class: "btn-row", style: "margin-top:14px;" }, [
         el("button", { class: "btn btn-secondary btn-sm", onclick: () => openAccountSheet({ existing: account, onSaved: () => Router.render() }) }, "Editar"),
         isCredit
-          ? el("button", { class: "btn btn-secondary btn-sm", onclick: () => Router.navigate(`/import?account=${id}`) }, "Importar estado (PDF)")
+          ? el("button", { class: "btn btn-secondary btn-sm", onclick: () => Router.navigate(`/import?account=${id}`) }, "Importar PDF")
           : null,
         isCredit
           ? el("button", { class: "btn btn-secondary btn-sm", onclick: () => Router.navigate(`/reconcile?account=${id}`) }, "Conciliar")

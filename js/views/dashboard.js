@@ -137,6 +137,10 @@ async function renderDashboard(root) {
     ])
   );
 
+  // ---- Pendientes: lo que conviene atender hoy (solo aparece si hay algo) ----
+  const pendingCard = await renderPendingCard(activeAccounts, transactions, recStatus, catMap);
+  if (pendingCard) root.appendChild(pendingCard);
+
   // ---- Gasto por mes: anillo por categoría. Desliza horizontalmente para ver meses anteriores ----
   let monthOffset = 0;
   const monthHolder = el("div", { class: "swipe-slot" });
@@ -332,6 +336,59 @@ const BANK_LOGOS = [
   [/spin/i, "spin"],
   [/cashi/i, "cashi"],
 ];
+/**
+ * Pendientes de Inicio: domiciliados por confirmar, pagos de la semana,
+ * presupuestos al 80% o más y gastos compartidos sin repartir. Cada renglón lleva a su sección.
+ */
+async function renderPendingCard(accounts, transactions, recStatus, catMap) {
+  const today = DateUtil.todayISO();
+  const mk = today.slice(0, 7);
+  const rows = [];
+  const row = (icon, title, meta, route, badge) =>
+    el("div", { class: "list-item", style: "cursor:pointer;", role: "button", onclick: () => Router.navigate(route) }, [
+      el("div", { class: "icon" }, iconNode(icon)),
+      el("div", { class: "main" }, [el("div", { class: "title" }, title), meta ? el("div", { class: "meta" }, meta) : null]),
+      badge || el("span", { class: "text-dim", style: "font-size:18px;" }, "›"),
+    ]);
+
+  // Domiciliados que ya debieron cobrarse este mes y falta confirmar
+  const paidKeys = new Set(transactions.filter((t) => t.type === "expense" && DateUtil.monthKey(t.date) === mk).map(recurringSeriesKey));
+  const toConfirm = dueRecurringThisMonth(buildRecurringSeries(transactions), recStatus, today).filter((s) => !paidKeys.has(s.key));
+  if (toConfirm.length) {
+    const names = toConfirm.slice(0, 2).map((s) => s.last.merchant || "Domiciliado").join(", ");
+    rows.push(row("repeat", toConfirm.length === 1 ? "1 domiciliado por confirmar" : `${toConfirm.length} domiciliados por confirmar`, toConfirm.length > 2 ? `${names} y más` : names, "/calendar"));
+  }
+
+  // Pagos de los próximos 7 días
+  for (const p of upcomingPayments(accounts, transactions, recStatus, 7).slice(0, 4)) {
+    rows.push(row(p.icon, p.title, p.meta, "/calendar", dueBadge(p.date)));
+  }
+
+  // Presupuestos del mes al 80% o más
+  const budgets = await DB.getAllByIndex("budgets", "monthKey", mk);
+  if (budgets.length) {
+    const spent = {};
+    for (const t of transactions) {
+      if (t.type === "expense" && t.categoryId && DateUtil.monthKey(t.date) === mk) spent[t.categoryId] = (spent[t.categoryId] || 0) + myShareCents(t);
+    }
+    for (const b of budgets) {
+      const s = spent[b.categoryId] || 0;
+      if (!b.limitCents || s < b.limitCents * 0.8) continue;
+      const name = catMap[b.categoryId] ? catMap[b.categoryId].name : "Presupuesto";
+      const over = s > b.limitCents;
+      rows.push(row("target", `Presupuesto de ${name}`, over ? `Te pasaste por ${Money.format(s - b.limitCents)}` : `Te quedan ${Money.format(b.limitCents - s)}`, "/budgets",
+        el("div", { class: `badge ${over || s === b.limitCents ? "danger" : "warn"}` }, `${Math.round((s / b.limitCents) * 100)}%`)));
+    }
+  }
+
+  // Gastos compartidos importados que falta repartir
+  const toSplit = transactions.filter((t) => t.pendingSplit && !t.split).length;
+  if (toSplit) rows.push(row("users", toSplit === 1 ? "1 gasto por repartir" : `${toSplit} gastos por repartir`, "Compartidos que aún no divides", "/transactions?pend=1"));
+
+  if (rows.length === 0) return null;
+  return el("div", { class: "card pending-card" }, [el("div", { class: "card-title" }, "Pendientes"), ...rows]);
+}
+
 function bankLogoFor(account) {
   const text = `${account.name || ""} ${account.bank || ""}`;
   const hit = BANK_LOGOS.find(([re]) => re.test(text));

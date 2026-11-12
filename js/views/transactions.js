@@ -118,7 +118,17 @@ async function renderTransactions(root, params) {
     root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, (allTime || ranged || q || catF || accF || pendF ? "Sin movimientos con estos filtros." : "Sin movimientos este mes."))));
   } else {
     for (const day of days) {
-      const card = el("div", { class: "card" }, [el("div", { class: "card-title" }, DateUtil.formatLong(day))]);
+      // Encabezado: "Hoy", "Ayer" o la fecha (sin año si es el actual) y lo gastado ese día
+      const sameYear = day.slice(0, 4) === DateUtil.todayISO().slice(0, 4);
+      const rel = DateUtil.relativeLabel(day);
+      const dayLabel = rel === "Hoy" || rel === "Ayer" || sameYear ? rel : DateUtil.formatLong(day);
+      const spentDay = byDay[day].filter((t) => t.type === "expense").reduce((s, t) => s + myShareCents(t), 0);
+      const card = el("div", { class: "card" }, [
+        el("div", { class: "flex-between" }, [
+          el("div", { class: "card-title" }, dayLabel),
+          spentDay > 0 ? el("div", { class: "card-title day-total" }, `−${Money.format(spentDay)}`) : null,
+        ]),
+      ]);
       for (const t of byDay[day]) card.appendChild(renderTxRow(t, catMap, accMap));
       root.appendChild(card);
     }

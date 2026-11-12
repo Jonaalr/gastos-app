@@ -81,6 +81,12 @@ async function loadSpendingHabits() {
 async function suggestCategoryFor(merchant, habits, kind = "expense") {
   const hit = kind === "expense" && habits ? habits.find(merchant) : null;
   if (hit && hit.categoryId) return hit.categoryId;
+  if (kind === "expense" && window.StatementImporters && StatementImporters.merchantKey) {
+    // Lo que elegiste al importar estados de cuenta para este mismo comercio
+    const memory = await DB.getMeta("merchantCategories", {});
+    const remembered = memory[StatementImporters.merchantKey(merchant)];
+    if (remembered && (await DB.get("categories", remembered))) return remembered;
+  }
   return suggestCategory(merchant, kind);
 }
 

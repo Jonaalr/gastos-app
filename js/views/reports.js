@@ -49,6 +49,7 @@ async function renderReports(root, params) {
   const totalExpense = Object.values(byCategory).reduce((a, b) => a + b, 0);
   const rows = Object.entries(byCategory)
     .map(([catId, amount]) => ({
+      key: catId,
       cat: catId === "none" ? { name: "Sin categoría", icon: "📦" } : catMap[catId],
       amount,
       pct: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
@@ -140,11 +141,24 @@ async function renderReports(root, params) {
   if (rows.length === 0) {
     catCard.appendChild(el("div", { class: "empty-state" }, "Sin gastos en este periodo."));
   } else {
+    // Tocar una categoría abre sus movimientos del mismo periodo y cuenta
+    const openCategory = (catKey) => {
+      const next = new URLSearchParams({ cat: catKey, tipo: "gasto" });
+      if (useMonth) next.set("month", selKey);
+      else if (allTime) next.set("todo", "1");
+      else {
+        if (fromF) next.set("from", fromF);
+        if (toF) next.set("to", toF);
+      }
+      if (accF) next.set("acc", accF);
+      Router.navigate(`/transactions?${next.toString()}`);
+    };
     for (const r of rows) {
-      const bar = el("div", { style: "margin-bottom:12px;" }, [
+      if (!r.cat) continue; // categoría borrada
+      const bar = el("div", { class: "cat-row", role: "button", tabindex: "0", onclick: () => openCategory(r.key) }, [
         el("div", { class: "flex-between", style: "margin-bottom:4px;" }, [
-          el("div", {}, `${r.cat.name}`),
-          el("div", { style: "font-weight:700;" }, Money.format(r.amount)),
+          el("div", {}, [categoryLabel(r.cat), el("span", { class: "cat-pct" }, `${r.pct}%`)]),
+          el("div", { style: "font-weight:700;white-space:nowrap;" }, [Money.format(r.amount), el("span", { class: "cat-go" }, "›")]),
         ]),
       ]);
       const track = el("div", { class: "progress-track" });

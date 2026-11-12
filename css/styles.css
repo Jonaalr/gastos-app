@@ -1471,3 +1471,30 @@ body[data-route="/import"] #imp-review { padding-bottom: 130px; }
   outline: none;
 }
 .tx-search-card input[type="search"]:focus { border-color: var(--accent); }
+
+/* ======================================================
+   Ajustes de legibilidad y detalles por sección
+   ====================================================== */
+/* Tema claro: el ámbar de avisos se lee sobre blanco, y las etiquetas usan fondos claros */
+:root[data-theme="light"] { --warn: #b45309; }
+:root[data-theme="light"] .progress-fill.warn { background: #f59e0b; }
+:root[data-theme="light"] .badge.warn { background: #fef3c7; color: #92400e; }
+:root[data-theme="light"] .badge.danger { background: #fee2e2; color: #b91c1c; }
+:root[data-theme="light"] .badge.success { color: #15803d; }
+
+/* Inicio: Pendientes */
+.pending-card .list-item .badge { flex-shrink: 0; }
+
+/* Cuentas: cuánto del límite llevas usado */
+.credit-usage { margin-top: 10px; }
+.credit-usage .progress-track { height: 6px; margin-top: 0; }
+.credit-usage-label { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+/* Informes: cada categoría abre sus movimientos */
+.cat-row { margin-bottom: 12px; cursor: pointer; }
+.cat-row:active { opacity: 0.6; }
+.cat-pct { color: var(--text-dim); font-size: 12px; margin-left: 8px; }
+.cat-go { color: var(--text-dim); font-weight: 400; margin-left: 8px; }
+
+/* Movimientos: total gastado en el día */
+.day-total { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }

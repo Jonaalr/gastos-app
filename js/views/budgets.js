@@ -28,14 +28,30 @@ async function renderBudgets(root, params) {
   const totalLimit = budgets.reduce((s, b) => s + b.limitCents, 0);
   const totalSpent = budgets.reduce((s, b) => s + (spentByCategory[b.categoryId] || 0), 0);
   if (budgets.length > 0) {
-    root.appendChild(renderBudgetBar("Total presupuestado", totalSpent, totalLimit, true));
+    root.appendChild(el("div", { class: "card" }, [renderBudgetBar("Total presupuestado", totalSpent, totalLimit, true, monthKey)]));
   }
 
   const usedCategoryIds = new Set(budgets.map((b) => b.categoryId));
   const availableCats = categories.filter((c) => !usedCategoryIds.has(c.id));
 
   if (budgets.length === 0) {
-    root.appendChild(el("div", { class: "card" }, el("div", { class: "empty-state" }, "Sin presupuestos este mes. Agrega uno por categoría.")));
+    // Mes nuevo: los presupuestos del último mes que tuviste se copian con un toque
+    const earlier = (await DB.getAll("budgets")).filter((b) => b.monthKey < monthKey);
+    const lastKey = earlier.reduce((max, b) => (b.monthKey > max ? b.monthKey : max), "");
+    const toCopy = earlier.filter((b) => b.monthKey === lastKey && catMap[b.categoryId]);
+    root.appendChild(el("div", { class: "card" }, [
+      el("div", { class: "empty-state" }, toCopy.length ? "Aún no tienes presupuestos este mes." : "Sin presupuestos este mes. Agrega uno por categoría."),
+      toCopy.length
+        ? el("button", {
+            class: "btn btn-secondary",
+            onclick: async () => {
+              for (const b of toCopy) await DB.add("budgets", { categoryId: b.categoryId, monthKey, limitCents: b.limitCents });
+              toast(`${toCopy.length} ${toCopy.length === 1 ? "presupuesto copiado" : "presupuestos copiados"}`, "success");
+              Router.render();
+            },
+          }, `Copiar los ${toCopy.length} de ${monthLabelES(lastKey)}`)
+        : null,
+    ]));
   } else {
     for (const b of budgets) {
       const cat = catMap[b.categoryId];
@@ -43,11 +59,11 @@ async function renderBudgets(root, params) {
       const card = el("div", { class: "card" });
       card.appendChild(
         el("div", { class: "flex-between" }, [
-          el("div", { style: "font-weight:700;" }, `${cat ? cat.name : "—"}`),
+          el("div", { style: "font-weight:700;" }, cat ? categoryLabel(cat) : "—"),
           el("button", { class: "btn-sm btn-secondary btn", style: "width:auto;", "data-edit-budget": b.id }, "Editar"),
         ])
       );
-      card.appendChild(renderBudgetBar(null, spent, b.limitCents));
+      card.appendChild(renderBudgetBar(null, spent, b.limitCents, false, monthKey));
       root.appendChild(card);
     }
   }
@@ -66,22 +82,37 @@ async function renderBudgets(root, params) {
   });
 }
 
-function renderBudgetBar(label, spentCents, limitCents, big = false) {
-  const pct = limitCents > 0 ? Math.min(100, Math.round((spentCents / limitCents) * 100)) : 0;
+function renderBudgetBar(label, spentCents, limitCents, big = false, monthKey = null) {
+  // El porcentaje real se muestra aunque pase de 100; la barra se llena hasta el tope
+  const realPct = limitCents > 0 ? Math.round((spentCents / limitCents) * 100) : 0;
+  const pct = Math.min(100, realPct);
   const level = pct >= 100 ? "danger" : pct >= 80 ? "warn" : "";
   const container = el("div", {});
   if (label) container.appendChild(el("div", { class: "card-title" }, label));
   container.appendChild(
     el("div", { class: "flex-between" }, [
       el("div", { style: big ? "font-weight:700;" : "font-size:13px;" }, `${Money.format(spentCents)} de ${Money.format(limitCents)}`),
-      el("div", { class: `badge ${level || "success"}` }, `${pct}%`),
+      el("div", { class: `badge ${level || "success"}` }, `${realPct}%`),
     ])
   );
   const track = el("div", { class: "progress-track" });
   track.appendChild(el("div", { class: `progress-fill ${level}`, style: `width:${pct}%` }));
   container.appendChild(track);
-  if (pct >= 100) container.appendChild(el("div", { class: "text-dim", style: "font-size:12px;margin-top:6px;color:var(--danger);" }, "Superaste el presupuesto de este mes."));
-  else if (pct >= 80) container.appendChild(el("div", { class: "text-dim", style: "font-size:12px;margin-top:6px;color:var(--warn);" }, "Vas en el 80% o más del presupuesto."));
+  // Cuánto queda (y cuánto por día si es el mes en curso), o por cuánto te pasaste
+  const left = limitCents - spentCents;
+  let hint;
+  if (left < 0) hint = `Te pasaste por ${Money.format(-left)}.`;
+  else if (left === 0) hint = "Llegaste al tope de este mes.";
+  else {
+    hint = `Te quedan ${Money.format(left)}`;
+    if (monthKey && monthKey === DateUtil.monthKey()) {
+      const now = new Date();
+      const daysLeft = DateUtil.daysInMonth(now.getFullYear(), now.getMonth()) - now.getDate() + 1;
+      if (daysLeft > 1) hint += ` · ${Money.format(Math.floor(left / daysLeft))} por día (${daysLeft} días)`;
+    }
+  }
+  const color = level === "danger" ? "color:var(--danger);" : level === "warn" ? "color:var(--warn);" : "";
+  container.appendChild(el("div", { class: "text-dim", style: `font-size:12px;margin-top:6px;${color}` }, hint));
   return container;
 }
 

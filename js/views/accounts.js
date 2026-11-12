@@ -112,6 +112,15 @@ function renderAccountCard(a) {
       el("div", { class: "label" }, isCredit ? "Disponible" : "Saldo"),
       el("div", { class: "amount" }, Money.format(isCredit ? info.available : a.balanceCents)),
     ]),
+    isCredit && info.limit > 0
+      ? (() => {
+          const used = Math.max(0, Math.min(100, Math.round((info.spent / info.limit) * 100)));
+          return el("div", { class: "credit-usage" }, [
+            el("div", { class: "progress-track" }, [el("div", { class: `progress-fill ${used >= 80 ? "danger" : used >= 50 ? "warn" : ""}`, style: `width:${used}%` })]),
+            el("div", { class: "credit-usage-label" }, `${used}% del límite usado`),
+          ]);
+        })()
+      : null,
     isCredit
       ? el("div", { class: "credit-grid" }, [
           el("div", {}, [el("span", { class: "k" }, "Límite"), el("span", { class: "v" }, Money.format(info.limit))]),
