@@ -6,6 +6,8 @@ App de control de gastos personales para iPhone. PWA (Progressive Web App) sin b
 
 - Dashboard con saldo total y movimientos recientes
 - Cuentas ilimitadas: efectivo, débito, crédito (límite, disponible, gastado, corte y pago con calendario), cuentas con rendimiento (cálculo de interés diario/mensual)
+- Registro rápido con el botón +: teclado de monto, comercios frecuentes y cuenta/categoría sugeridas según tu historial
+- Registro desde capturas de notificaciones (una o varias a la vez) y por dictado
 - Transacciones (gasto/ingreso/transferencia) con categoría, nota y marca de "pago domiciliado"
 - Categorías predeterminadas + personalizadas + subcategorías
 - Presupuestos por categoría con alertas al 80% y 100%

@@ -14,12 +14,16 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
     return;
   }
 
+  // Historial: última cuenta usada y categoría habitual de cada comercio (solo al crear)
+  const habits = existing ? null : await loadSpendingHabits();
+  const lastUsedAccount = habits && (prefill?.type || "expense") === "expense" ? accounts.find((a) => a.id === habits.lastAccountId) : null;
+
   const data = existing || {
     type: prefill?.type || "expense",
     amountCents: prefill?.amountCents || 0,
-    accountId: prefill?.accountId || accounts[0].id,
+    accountId: prefill?.accountId || lastUsedAccount?.id || accounts[0].id,
     toAccountId: null,
-    categoryId: null,
+    categoryId: prefill?.categoryId || null,
     merchant: prefill?.merchant || "",
     note: "",
     date: prefill?.date || DateUtil.todayISO(),
@@ -425,14 +429,18 @@ async function openTransactionSheet({ existing = null, prefill = null, onSaved =
 
   // Auto-sugerencia de categoría al escribir el comercio
   const merchantInput = sheet.querySelector("#f-merchant");
-  merchantInput.addEventListener("blur", async () => {
-    if (!merchantInput.value) return;
-    const suggested = await suggestCategory(merchantInput.value, currentType === "income" ? "income" : "expense");
-    if (suggested) {
-      const catSelect = sheet.querySelector("#f-category");
-      if (catSelect && !catSelect.value) catSelect.value = suggested;
+  async function suggestCategoryNow() {
+    if (!merchantInput.value || currentType === "transfer") return;
+    const suggested = await suggestCategoryFor(merchantInput.value, habits, currentType === "income" ? "income" : "expense");
+    const catSelect = sheet.querySelector("#f-category");
+    if (suggested && catSelect && !catSelect.value) {
+      catSelect.value = suggested;
+      catSelect.dispatchEvent(new Event("change", { bubbles: true })); // refresca el botón del menú
     }
-  });
+  }
+  merchantInput.addEventListener("blur", suggestCategoryNow);
+  // Captura o dictado: el comercio ya viene escrito, así que la categoría se sugiere al abrir
+  if (!existing && data.merchant && !data.categoryId) suggestCategoryNow();
 
   if (existing) {
     sheet.querySelector("#f-delete").addEventListener("click", async () => {

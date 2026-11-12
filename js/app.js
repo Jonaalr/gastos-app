@@ -208,7 +208,7 @@ function buildShell() {
       openTransactionSheet({ prefill: { type: "expense", isRecurring: true }, onSaved: () => Router.render() });
       return;
     }
-    openAddMenu();
+    openQuickAdd({ onSaved: () => Router.render() });
   });
 
   const nav = el("div", { class: "bottom-nav" });

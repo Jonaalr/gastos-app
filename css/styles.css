@@ -804,50 +804,6 @@ body[data-route="/import"] .fab { display: none; }
 .nav-item.active { color: var(--accent); background: var(--accent-dim); }
 .nav-item.active .nav-icon { filter: none; }
 
-/* ---------- Menú del botón + (Escribir / Desde captura) ---------- */
-.add-menu-backdrop {
-  position: fixed; inset: 0;
-  z-index: 95;
-  background: rgba(0, 0, 0, 0.3);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  touch-action: none;
-  overscroll-behavior: none;
-  animation: backdropFade 0.2s ease-out;
-}
-.add-menu {
-  position: absolute;
-  left: 20px; right: 20px;
-  bottom: calc(164px + var(--safe-bottom));
-  background: var(--bg-card);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-}
-.add-menu-item {
-  width: 100%;
-  display: flex; align-items: center; gap: 12px;
-  padding: 16px 18px;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  border-radius: 0;
-}
-.add-menu-item + .add-menu-item { border-top: 0.5px solid var(--border); }
-.add-menu-item.hover { background: var(--accent); color: #ffffff; }
-.add-menu-icon {
-  width: 34px; height: 34px; border-radius: 17px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-size: 16px; font-weight: 700;
-  flex-shrink: 0;
-}
-.add-menu-item.hover .add-menu-icon { background: rgba(255, 255, 255, 0.25); color: #ffffff; }
-.add-menu-title { font-size: 16px; font-weight: 600; }
-.add-menu-sub { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
-.add-menu-item.hover .add-menu-sub { color: rgba(255, 255, 255, 0.9); }
-
 .capture-notice {
   margin: 0 0 14px;
   padding: 10px 14px;
@@ -1348,3 +1304,170 @@ body[data-route="/budgets"] .fab { display: none; }
 /* Importar: la barra de abajo está oculta, así que la barra de importar va pegada al fondo */
 body[data-route="/import"] .imp-bar { bottom: var(--safe-bottom, 0px); }
 body[data-route="/import"] #imp-review { padding-bottom: 130px; }
+
+/* ======================================================
+   Registro rápido (botón +)
+   ====================================================== */
+.qa-sheet { padding-top: 18px; }
+.qa-header { margin-bottom: 12px; }
+.qa-tools { display: flex; align-items: center; gap: 8px; }
+.qa-tool {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: 99px;
+  background: var(--field);
+  color: var(--text);
+  font-size: 13px; font-weight: 600;
+}
+.qa-tool svg { color: var(--accent); }
+.qa-amount {
+  display: flex; justify-content: center; align-items: baseline; gap: 4px;
+  padding: 16px 0 14px;
+  font-size: 50px; font-weight: 800; line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.qa-amount.empty { color: var(--text-dim); }
+.qa-cur { font-size: 28px; font-weight: 700; color: var(--text-dim); }
+@keyframes qaShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+.qa-amount.shake { animation: qaShake 0.28s ease-in-out; }
+.qa-where { display: flex; gap: 8px; }
+.qa-where input {
+  flex: 1; min-width: 0;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--field);
+  color: var(--text);
+  font: inherit; font-size: 16px;
+  padding: 0 14px;
+  outline: none;
+}
+.qa-where input:focus { border-color: var(--accent); }
+.qa-date { flex: 0 0 112px; }
+.qa-chips {
+  display: flex; gap: 6px;
+  overflow-x: auto;
+  margin: 10px -18px 0;
+  padding: 0 18px 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.qa-chips::-webkit-scrollbar { display: none; }
+.qa-chip {
+  flex: 0 0 auto;
+  margin: 0;
+  max-width: 170px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+}
+.qa-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.qa-fields .form-group { margin-bottom: 0; min-width: 0; }
+.qa-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+.qa-key {
+  height: 46px;
+  border-radius: 12px;
+  background: var(--field);
+  color: var(--text);
+  font-size: 22px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+}
+.qa-key:active { background: var(--accent-dim); color: var(--accent); }
+.qa-typing .qa-keypad { display: none; }
+.qa-actions { margin-top: 2px; }
+.qa-header h2 { white-space: nowrap; }
+/* Pantallas angostas: los accesos de Capturas y Dictar se compactan */
+@media (max-width: 389px) {
+  .qa-tools { gap: 6px; }
+  .qa-tool { padding: 0 9px; gap: 4px; font-size: 12px; }
+}
+/* Pantallas bajas: todo cabe sin desplazar */
+@media (max-height: 740px) {
+  .qa-amount { font-size: 40px; padding: 10px 0 8px; }
+  .qa-cur { font-size: 22px; }
+  .qa-key { height: 37px; font-size: 20px; }
+  .qa-sheet { padding-top: 14px; }
+  .qa-header { margin-bottom: 8px; }
+  .qa-keypad { gap: 5px; margin-top: 10px; }
+  .qa-fields { margin-top: 8px; }
+  .qa-fields .form-group label { display: none; }
+  .qa-chips { margin-top: 8px; }
+}
+.qa-actions .btn-secondary { flex: 0 0 40%; white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+
+/* ---------- Revisar varias capturas ---------- */
+.cr-row {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.cr-row.off { opacity: 0.5; }
+.cr-top { display: flex; align-items: center; gap: 8px; }
+.cr-top input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--accent); }
+.cr-row input[type="text"],
+.cr-row input[type="number"],
+.cr-row input[type="date"] {
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--field);
+  color: var(--text);
+  font: inherit; font-size: 16px;
+  padding: 0 10px;
+  min-width: 0;
+  outline: none;
+}
+.cr-merchant { flex: 1; }
+.cr-amount { flex: 0 0 96px; text-align: right; font-weight: 700; }
+.cr-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.cr-bottom > * { min-width: 0; }
+.cr-bottom .fsel-btn { height: 42px; font-size: 14px; padding: 0 10px; }
+.cr-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.cr-meta input[type="date"] { height: 36px; font-size: 14px; flex: 0 0 150px; width: 150px; }
+.cr-dup { font-size: 12px; font-weight: 600; color: var(--warn); }
+:root[data-theme="light"] .cr-dup { color: #b45309; }
+
+/* ---------- Aviso mientras se leen las capturas ---------- */
+.capture-progress {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.capture-progress-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 15px; font-weight: 600;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+.capture-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  animation: captureSpin 0.8s linear infinite;
+}
+@keyframes captureSpin { to { transform: rotate(360deg); } }
+
+/* ---------- Buscador de Movimientos con el mismo estilo que los demás campos ---------- */
+.tx-search-card input[type="search"] {
+  -webkit-appearance: none; appearance: none;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2398989d' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center;
+  color: var(--text);
+  font: inherit; font-size: 16px;
+  padding: 0 12px 0 38px;
+  outline: none;
+}
+.tx-search-card input[type="search"]:focus { border-color: var(--accent); }

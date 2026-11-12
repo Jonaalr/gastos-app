@@ -41,6 +41,8 @@
       const inGrabZone = e.clientY - rect.top < GRAB_ZONE;
       const inHeader = e.target.closest && e.target.closest(".sheet-header");
       if (!inGrabZone && !inHeader) return;
+      // Los botones y campos del encabezado se tocan, no arrastran la hoja
+      if (e.target.closest && e.target.closest("button, a, input, select, textarea")) return;
 
       // Interrumpe cualquier animación en curso desde la posición actual
       offset = currentOffset(sheet);

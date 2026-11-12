@@ -33,6 +33,9 @@ const ICON_PATHS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
   bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  backspace: '<path d="M21 5H9l-6 7 6 7h12zM17 9l-5 6M12 9l5 6"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
 };
 

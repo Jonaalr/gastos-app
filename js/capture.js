@@ -1,9 +1,10 @@
 /**
  * capture.js — Registrar gastos desde una captura de pantalla de una notificación.
  *
- * Flujo: botón + -> menú ("Escribir gasto" | "Desde captura") -> eliges la captura
+ * Flujo: botón + -> "Capturas" -> eliges una o varias capturas
  * -> el texto se lee AQUÍ, en el teléfono (Tesseract.js, sin subir nada)
- * -> se llenan monto, comercio, fecha y cuenta -> revisas el formulario y guardas.
+ * -> una captura: confirmación corta con monto, comercio, cuenta y categoría sugeridos
+ * -> varias: una lista para revisar y guardar todo de una vez.
  *
  * La imagen no se guarda en ningún lado: solo se usa para leer el texto.
  */
@@ -12,122 +13,160 @@ const TESSERACT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tess
 const CAPTURE_LANGS = "spa+eng";
 let tesseractPromise = null;
 
-/** Abre el menú del botón + sobre fondo difuminado. */
-function openAddMenu() {
-  const backdrop = el("div", { class: "add-menu-backdrop" });
-  const menu = el("div", { class: "add-menu" });
-  const close = () => backdrop.remove();
-
-  const writeBtn = el("button", { class: "add-menu-item", type: "button" }, [
-    el("div", { class: "add-menu-icon" }, "✎"),
-    el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Manual"),
-      el("div", { class: "add-menu-sub" }, "Escribes el monto, comercio y categoría"),
-    ]),
-  ]);
-  const captureBtn = el("button", { class: "add-menu-item", type: "button" }, [
-    el("div", { class: "add-menu-icon" }, "▣"),
-    el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Desde notificación"),
-      el("div", { class: "add-menu-sub" }, "Elige la captura de Revolut, Banamex o Mercado Pago"),
-    ]),
-  ]);
-
-  const voiceBtn = el("button", { class: "add-menu-item", type: "button" }, [
-    el("div", { class: "add-menu-icon" }, "◉"),
-    el("div", { class: "add-menu-text" }, [
-      el("div", { class: "add-menu-title" }, "Dictar"),
-      el("div", { class: "add-menu-sub" }, "Di el gasto con el micrófono del teclado"),
-    ]),
-  ]);
-
-  const actions = new Map([
-    [writeBtn, () => openTransactionSheet({ onSaved: () => Router.render() })],
-    [captureBtn, () => pickCaptureImage()],
-    [voiceBtn, () => openVoiceSheet()],
-  ]);
-  writeBtn.addEventListener("click", () => { close(); actions.get(writeBtn)(); });
-  captureBtn.addEventListener("click", () => { close(); actions.get(captureBtn)(); });
-  voiceBtn.addEventListener("click", () => { close(); actions.get(voiceBtn)(); });
-
-  // Se pinta la opción bajo el dedo (igual que el menú desplegable); al soltar, se elige
-  let hovered = null;
-  const setHover = (item) => {
-    if (item === hovered) return;
-    if (hovered) hovered.classList.remove("hover");
-    hovered = item;
-    if (hovered) hovered.classList.add("hover");
-  };
-  const itemAt = (touch) => {
-    const node = document.elementFromPoint(touch.clientX, touch.clientY);
-    const item = node && node.closest ? node.closest(".add-menu-item") : null;
-    return item && menu.contains(item) ? item : null;
-  };
-  menu.addEventListener("touchstart", (e) => setHover(itemAt(e.touches[0])), { passive: true });
-  menu.addEventListener("touchmove", (e) => setHover(itemAt(e.touches[0])), { passive: true });
-  menu.addEventListener("touchend", (e) => {
-    const target = hovered;
-    setHover(null);
-    if (target && actions.has(target)) {
-      e.preventDefault();
-      close();
-      actions.get(target)();
-    }
-  });
-  menu.addEventListener("touchcancel", () => setHover(null), { passive: true });
-  // Mientras el menú está abierto, deslizar no debe mover la página de atrás
-  backdrop.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
-
-  menu.append(writeBtn, captureBtn, voiceBtn);
-  backdrop.appendChild(menu);
-  backdrop.addEventListener("click", (e) => {
-    if (e.target === backdrop) close();
-  });
-  document.body.appendChild(backdrop);
-}
-
-/** Abre el selector de imágenes del teléfono y procesa la que elijas. */
+/** Abre el selector de imágenes del teléfono: una captura o varias a la vez. */
 function pickCaptureImage() {
-  const input = el("input", { type: "file", accept: "image/*" });
+  const input = el("input", { type: "file", accept: "image/*", multiple: "multiple" });
   input.style.display = "none";
   document.body.appendChild(input);
   input.addEventListener("change", async () => {
-    const file = input.files && input.files[0];
+    const files = [...(input.files || [])];
     input.remove();
-    if (file) await handleCaptureFile(file);
+    if (files.length) await handleCaptureFiles(files);
   });
   input.click();
 }
 
-async function handleCaptureFile(file) {
-  toast("Leyendo la captura…", "info");
-  let text = "";
+/** Aviso fijo mientras se leen las capturas (un toast se iría antes de terminar) */
+function captureProgress(text) {
+  const label = el("div", { class: "capture-progress-text" }, text);
+  const node = el("div", { class: "capture-progress" }, [el("div", { class: "capture-progress-card" }, [el("div", { class: "capture-spinner" }), label])]);
+  document.body.appendChild(node);
+  return { set: (t) => { label.textContent = t; }, done: () => node.remove() };
+}
+
+async function handleCaptureFiles(files) {
+  const many = files.length > 1;
+  const progress = captureProgress(many ? `Leyendo captura 1 de ${files.length}…` : "Leyendo la captura…");
+  let texts = [];
   try {
-    text = await recognizeCaptureText(file);
+    texts = await recognizeCaptureTexts(files, (i) => { if (many) progress.set(`Leyendo captura ${i} de ${files.length}…`); });
   } catch (err) {
     console.error(err);
+    progress.done();
     toast("No pude leer la captura. Revisa tu conexión la primera vez.", "error");
     return;
   }
+  progress.done();
 
   const accounts = (await DB.getAll("accounts")).filter((a) => !a.archived);
-  const parsed = parseCapture(text, accounts);
-  if (!parsed.amountCents) {
-    toast("No encontré un monto en la captura", "error");
+  const parsed = texts.map((t) => parseCapture(t, accounts));
+  const good = parsed.filter((p) => p.amountCents);
+  if (good.length === 0) {
+    toast(many ? "No encontré montos en las capturas" : "No encontré un monto en la captura", "error");
     return;
   }
+  if (!many) {
+    const p = good[0];
+    openQuickAdd({
+      prefill: { amountCents: p.amountCents, merchant: p.merchant, date: p.date, accountId: p.accountId, source: "ocr", notice: p.notice },
+      onSaved: () => Router.render(),
+    });
+    return;
+  }
+  await openCaptureReview(good, parsed.length - good.length);
+}
 
-  openTransactionSheet({
-    prefill: {
-      type: "expense",
-      amountCents: parsed.amountCents,
-      merchant: parsed.merchant,
-      date: parsed.date,
-      accountId: parsed.accountId,
-      source: "ocr",
-      notice: parsed.notice,
-    },
-    onSaved: () => Router.render(),
+/**
+ * Varias capturas: una lista para revisar y guardar todo de una vez.
+ * Cada renglón trae la cuenta y categoría sugeridas; los posibles duplicados llegan desmarcados.
+ */
+async function openCaptureReview(items, failedCount) {
+  const accounts = expenseAccounts(await DB.getAll("accounts"));
+  if (accounts.length === 0) { toast("Primero crea una cuenta en Dinero → Cuentas", "error"); return; }
+  const [habits, categories, txs] = await Promise.all([
+    loadSpendingHabits(),
+    DB.getAllByIndex("categories", "kind", "expense"),
+    DB.getAll("transactions"),
+  ]);
+  const valid = (id) => (accounts.some((a) => a.id === id) ? id : null);
+  for (const it of items) {
+    const hit = habits.find(it.merchant);
+    it.accountId = valid(it.accountId) || valid(hit && hit.accountId) || valid(habits.lastAccountId) || accounts[0].id;
+    it.categoryId = await suggestCategoryFor(it.merchant, habits);
+    // Duplicado: mismo monto, misma cuenta y fecha a un día de distancia
+    it.dup = txs.some((t) => t.type === "expense" && t.amountCents === it.amountCents && t.accountId === it.accountId && t.date && Math.abs(DateUtil.daysBetween(t.date.slice(0, 10), it.date)) <= 1);
+  }
+
+  const backdrop = el("div", { class: "sheet-backdrop" });
+  const sheet = el("div", { class: "sheet" });
+  backdrop.appendChild(sheet);
+  const close = () => backdrop.remove();
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+
+  const accOptions = (sel) => accounts.map((a) => `<option value="${a.id}" ${a.id === sel ? "selected" : ""}>${escapeHtml(accountPickerLabel(a))}</option>`).join("");
+  const catOptions = (sel) => `<option value="">Sin categoría</option>` + categories.map((c) => `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${escapeHtml(categoryLabel(c))}</option>`).join("");
+  sheet.innerHTML = `
+    <div class="sheet-header">
+      <h2>Revisar capturas</h2>
+      <button class="sheet-close" type="button" data-close aria-label="Cerrar">✕</button>
+    </div>
+    <div class="field-hint" style="margin:0 0 12px;">Corrige lo que haga falta y guarda todo de una vez.${failedCount ? ` No pude leer ${failedCount} ${failedCount === 1 ? "captura" : "capturas"}.` : ""}</div>
+    ${items.map((it, i) => `
+      <div class="cr-row${it.dup ? " off" : ""}" data-i="${i}">
+        <div class="cr-top">
+          <input type="checkbox" class="cr-inc" ${it.dup ? "" : "checked"} aria-label="Incluir este gasto">
+          <input type="text" class="cr-merchant" value="${escapeHtml(it.merchant || "")}" placeholder="Comercio" autocomplete="off">
+          <input type="number" inputmode="decimal" step="0.01" class="cr-amount" value="${Money.toInputValue(it.amountCents)}" aria-label="Monto">
+        </div>
+        <div class="cr-bottom">
+          <select class="cr-acc" aria-label="Cuenta">${accOptions(it.accountId)}</select>
+          <select class="cr-cat" aria-label="Categoría">${catOptions(it.categoryId)}</select>
+        </div>
+        <div class="cr-meta">
+          <input type="date" class="cr-date" value="${it.date}" aria-label="Fecha">
+          ${it.dup ? '<span class="cr-dup">Parece que ya está registrado</span>' : ""}
+        </div>
+      </div>`).join("")}
+    <div class="btn-row mt-8 sheet-actions">
+      <button class="btn" type="button" id="cr-save"></button>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const rows = [...sheet.querySelectorAll(".cr-row")];
+  const saveBtn = sheet.querySelector("#cr-save");
+  const included = () => rows.filter((r) => r.querySelector(".cr-inc").checked);
+  const refresh = () => {
+    const n = included().length;
+    saveBtn.textContent = n === 0 ? "Nada que guardar" : `Guardar ${n} ${n === 1 ? "gasto" : "gastos"}`;
+    saveBtn.disabled = n === 0;
+    rows.forEach((r) => r.classList.toggle("off", !r.querySelector(".cr-inc").checked));
+  };
+  rows.forEach((r) => r.querySelector(".cr-inc").addEventListener("change", refresh));
+  refresh();
+  sheet.querySelector("[data-close]").addEventListener("click", close);
+
+  let saving = false;
+  saveBtn.addEventListener("click", async () => {
+    if (saving) return;
+    const picked = included();
+    const records = [];
+    for (const r of picked) {
+      const amount = Money.toCents(r.querySelector(".cr-amount").value);
+      if (!amount || amount <= 0) { toast("Hay un gasto sin monto", "error"); return; }
+      const cat = r.querySelector(".cr-cat").value;
+      records.push({
+        type: "expense",
+        amountCents: amount,
+        accountId: parseInt(r.querySelector(".cr-acc").value, 10),
+        toAccountId: null,
+        categoryId: cat ? parseInt(cat, 10) : null,
+        merchant: r.querySelector(".cr-merchant").value.trim(),
+        note: "",
+        date: r.querySelector(".cr-date").value || DateUtil.todayISO(),
+        isRecurring: false,
+        recurringDay: null,
+        split: null,
+        pendingSplit: false,
+        source: "ocr",
+        createdAt: new Date().toISOString(),
+      });
+    }
+    saving = true;
+    for (const rec of records) await saveTransactionWithBalances(rec, null);
+    toast(`${records.length} ${records.length === 1 ? "gasto guardado" : "gastos guardados"}`, "success");
+    close();
+    Router.render();
   });
 }
 
@@ -149,15 +188,26 @@ function loadTesseract() {
   return tesseractPromise;
 }
 
-async function recognizeCaptureText(file) {
+/** Lee el texto de una o varias capturas con un solo lector (más rápido que abrir uno por imagen). */
+async function recognizeCaptureTexts(files, onProgress) {
   const Tesseract = await loadTesseract();
   const worker = await Tesseract.createWorker(CAPTURE_LANGS);
+  const texts = [];
   try {
-    const { data } = await worker.recognize(file);
-    return data.text || "";
+    for (let i = 0; i < files.length; i++) {
+      if (onProgress) onProgress(i + 1);
+      try {
+        const { data } = await worker.recognize(files[i]);
+        texts.push(data.text || "");
+      } catch (err) {
+        console.error(err);
+        texts.push(""); // esa captura no se pudo leer; las demás siguen
+      }
+    }
   } finally {
     await worker.terminate();
   }
+  return texts;
 }
 
 // ---------- Lectura del texto ----------
@@ -251,6 +301,8 @@ function cleanMerchant(text) {
     .replace(/\bCOSTCO\s*BANAMEX\b/gi, "")
     .replace(/\bBANAMEX\b/gi, "")
     .replace(/\bAuto\.?\s*\d*\b.*$/i, "")
+    // La hora de la notificación suele leerse pegada al comercio: "Cinépolis Ahora", "Oxxo hace 5 min", "Costco 9:41"
+    .replace(/\s+(ahora|now|hace\s+\d+\s*\w+|\d{1,2}:\d{2}(\s?[ap]\.?\s?m\.?)?)\s*$/i, "")
     .replace(/[|•·]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -316,9 +368,8 @@ function openVoiceSheet() {
       return;
     }
     close();
-    openTransactionSheet({
+    openQuickAdd({
       prefill: {
-        type: "expense",
         amountCents: parsed.amountCents,
         merchant: parsed.merchant,
         date: parsed.date,
